@@ -9,7 +9,7 @@ class Producto(models.Model):
     team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='productos')  
     descripcion = models.TextField(blank=True)
     precio = models.DecimalField(max_digits=10, decimal_places=2)
-    tipo = models.CharField(max_length=50, choices=[
+    categoria = models.CharField(max_length=50, choices=[
         ('ropa', 'Ropa'),
         ('electronica', 'Electrónica'),
         ('comida', 'Comida'),
