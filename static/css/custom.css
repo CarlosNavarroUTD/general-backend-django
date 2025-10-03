@@ -1,0 +1,32 @@
+/* static/admin/css/custom.css */
+.tag-badge {
+    background-color: #e8f0fe;
+    color: #1a73e8;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.9em;
+    margin: 2px;
+    display: inline-block;
+}
+
+.count-badge {
+    background-color: #f1f3f4;
+    color: #202124;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-weight: 500;
+    display: inline-block;
+}
+
+/* Mejoras para los inlines */
+.inline-related h3 {
+    background-color: #f8f9fa;
+    padding: 8px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.inline-related .form-row {
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}

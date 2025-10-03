@@ -1,0 +1,67 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.log
+
+# --- Virtualenv / pipenv / poetry ---
+venv/
+env/
+.venv/
+ENV/
+Pipfile.lock
+poetry.lock
+
+# --- Django ---
+*.sqlite3
+db.sqlite3
+media/
+local_settings.py
+
+# Migraciones compiladas (puedes ignorar si solo quieres mantener migraciones iniciales)
+*/migrations/__pycache__/
+*/migrations/*.py[cod]
+# Si quieres ignorar TODAS las migraciones locales descomenta esta línea:
+# */migrations/
+
+# Archivos de estáticos generados por collectstatic
+staticfiles/
+static_root/
+
+# --- Entornos y configuración ---
+.env
+.env.local
+*.secret.json
+secrets.json
+
+# --- IDEs y editores ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+
+# --- Docker ---
+*.pid
+*.seed
+*.cover
+docker-compose.override.yml
+
+# --- Tests ---
+.coverage
+htmlcov/
+.pytest_cache/
+.cache/
+test/__pycache__/
+
+# --- Fly.io ---
+.fly/
+.fly-checks.json
+fly.toml.local
