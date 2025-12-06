@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from apps.usuarios.views import CustomTokenObtainPairView
 from apps.flows.views import FlowWebhookView
+from apps.citas.views import ProcesarChatView
 
 class HealthCheckView(APIView):
     permission_classes = [AllowAny]
@@ -30,13 +31,22 @@ urlpatterns = [
     path('api/', include('apps.tasks.urls')),
     path('api/', include('apps.integraciones.urls')),
     path('api/', include('apps.flows.urls')),
+    path('api/', include('apps.tiendas.urls')),
+    path('api/', include('apps.productos.urls')),
+    path('api/', include('apps.citas.urls')),
+    path('api/', include('apps.servicios.urls')),
+    
+    path('api/', include('apps.conversaciones.urls')),
+    path('api/', include('apps.archivos.urls')),
+    path('api/', include('apps.contratos.urls')),
+
     #path('api/', include('apps.mensajes.urls')),
-    #path('api/', include('apps.conversaciones.urls')),
     #path('api/', include('apps.leads.urls')),
 
 
     path('health/', HealthCheckView.as_view(), name='health_check'),
     path('webhook/<slug:team_slug>/<slug:flow_slug>/', FlowWebhookView.as_view(), name='flow-webhook'),
+    path('procesar-chat/', ProcesarChatView.as_view(), name='procesar-chat'),
 
 ]
 

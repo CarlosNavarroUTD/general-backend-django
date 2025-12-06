@@ -2,8 +2,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Equipo, Lead, ActividadLead
-
-
+from apps.teams.serializers import TeamSerializer 
 
 class LeadListSerializer(serializers.ModelSerializer):
     """Serializer resumido para lista de leads"""

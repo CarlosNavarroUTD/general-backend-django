@@ -1,5 +1,6 @@
 from rest_framework import viewsets, status, permissions
-from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
+from rest_framework.decorators import action, permission_classes
 from rest_framework.response import Response
 from .models import Team, TeamMember, Invitation
 from .serializers import (
@@ -9,6 +10,9 @@ from .serializers import (
     InviteMemberSerializer
 )
 from django.db.models import Q
+from django.contrib.auth import get_user_model
+User = get_user_model()
+
 
 class IsTeamAdminOrReadOnly(permissions.BasePermission):
     """
@@ -35,29 +39,37 @@ class TeamViewSet(viewsets.ModelViewSet):
     queryset = Team.objects.all()
     serializer_class = TeamSerializer
     permission_classes = [permissions.IsAuthenticated, IsTeamAdminOrReadOnly]
-    
+
+    def get_permissions(self):
+        # Para add_member: no requiere autenticación ni ser admin
+        if self.action == 'add_member':
+            return [AllowAny()]
+        return super().get_permissions()
+
     def perform_create(self, serializer):
-        # Crear el equipo y añadir al creador como administrador
         team = serializer.save()
         TeamMember.objects.create(
             team=team,
             user=self.request.user,
             role='ADMIN'
         )
-    
+
     @action(detail=False, methods=['get'])
     def my_teams(self, request):
-        """Obtener todos los equipos del usuario"""
         teams = Team.objects.filter(members__user=request.user)
         serializer = self.get_serializer(teams, many=True)
         return Response(serializer.data)
-    
-    @action(detail=True, methods=['get'], url_path='members')
+
+    @action(
+        detail=True, 
+        methods=['get'], 
+        url_path='members',
+        permission_classes=[AllowAny]  # 👈 permite acceso público
+    )
     def members(self, request, pk=None):
-        """Obtener todos los miembros de un equipo"""
         team = self.get_object()
-        team_members = TeamMember.objects.filter(team=team)
-        serializer = TeamMemberSerializer(team_members, many=True)
+        team_members = TeamMember.objects.select_related('user__persona').filter(team=team)
+        serializer = TeamMemberSerializer(team_members, many=True, context={'request': request})
         return Response(serializer.data)
     
     @action(detail=True, methods=['post'], url_path='invite_member')
@@ -160,9 +172,35 @@ class TeamViewSet(viewsets.ModelViewSet):
         
         return Response(
             {"detail": "Miembro eliminado correctamente."},
+            
             status=status.HTTP_200_OK
         )
 
+    @action(detail=True, methods=['post'], url_path='add_member')
+    def add_member(self, request, pk=None):
+        team = self.get_object()
+
+        user_id = request.data.get('user_id')
+        role = request.data.get('role', 'MEMBER')
+
+        # Validar usuario
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "El usuario especificado no existe."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Si ya existe, devolverlo sin error (eficiente)
+        member, created = TeamMember.objects.get_or_create(
+            team=team,
+            user=user,
+            defaults={"role": role}
+        )
+
+        serializer = TeamMemberSerializer(member, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class InvitationViewSet(viewsets.ModelViewSet):

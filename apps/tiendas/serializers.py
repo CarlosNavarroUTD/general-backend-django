@@ -1,53 +1,54 @@
 from rest_framework import serializers
 from .models import Tienda
-from apps.usuarios.serializers import UsuarioSerializer
-from apps.teams.serializers import TeamSerializer
 
-class StoreSerializer(serializers.ModelSerializer):
-    propietario_details = UsuarioSerializer(source='propietario', read_only=True)
-    teams_details = TeamSerializer(source='teams', many=True, read_only=True)
-    subdomain_url = serializers.SerializerMethodField()
+
+class TiendaSerializer(serializers.ModelSerializer):
+    team_name = serializers.CharField(source='team.name', read_only=True)
+    total_productos = serializers.SerializerMethodField()
     
     class Meta:
         model = Tienda
         fields = [
-            'id', 'nombre', 'slug', 'plantilla', 'dominio_personalizado', 
-            'logo', 'color_primario', 'color_secundario', 'fuente', 
-            'configuracion_extra', 'activa', 'creado_en', 'actualizado_en',
-            'propietario', 'propietario_details', 'teams', 'teams_details',
-            'subdomain_url'
+            'id', 'nombre', 'direccion', 'telefono', 'email', 
+            'horario', 'team', 'team_name', 'total_productos', 
+            'creado_en', 'actualizado_en'
         ]
-        read_only_fields = ['creado_en', 'actualizado_en', 'propietario']
-    
-    def validate_slug(self, value):
-        """Validar que el slug sea único y válido"""
-        if self.instance and self.instance.slug == value:
-            return value
-            
-        if Tienda.objects.filter(slug=value).exists():
-            raise serializers.ValidationError("Este slug ya está en uso.")
-        
-        # Lista de slugs reservados
-        reserved_slugs = ['www', 'api', 'admin', 'app', 'mail', 'ftp', 'blog']
-        if value.lower() in reserved_slugs:
-            raise serializers.ValidationError("Este slug está reservado.")
-        
-        return value
-    
-    def validate_dominio_personalizado(self, value):
-        """Validar dominio personalizado"""
-        if not value:
-            return value
-            
-        import re
-        domain_pattern = r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$'
-        
-        if not re.match(domain_pattern, value):
-            raise serializers.ValidationError("Formato de dominio inválido.")
-        
-        return value
-    
-    def get_subdomain_url(self, obj):
-        """Genera la URL del subdominio"""
-        return obj.get_absolute_url()
+        read_only_fields = ['creado_en', 'actualizado_en']
 
+    def get_total_productos(self, obj):
+        return obj.productos.count()
+
+
+class TiendaCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tienda
+        fields = [
+            'nombre', 'direccion', 'telefono', 'email', 'horario', 'team'
+        ]
+
+    def validate_nombre(self, value):
+        if len(value) < 3:
+            raise serializers.ValidationError("El nombre debe tener al menos 3 caracteres")
+        return value
+
+
+class TiendaDetailSerializer(serializers.ModelSerializer):
+    team_name = serializers.CharField(source='team.name', read_only=True)
+    team_slug = serializers.CharField(source='team.slug', read_only=True)
+    productos_count = serializers.SerializerMethodField()
+    stock_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Tienda
+        fields = [
+            'id', 'nombre', 'direccion', 'telefono', 'email', 
+            'horario', 'team', 'team_name', 'team_slug',
+            'productos_count', 'stock_count',
+            'creado_en', 'actualizado_en'
+        ]
+
+    def get_productos_count(self, obj):
+        return obj.productos.count()
+
+    def get_stock_count(self, obj):
+        return obj.stock_entries.count()

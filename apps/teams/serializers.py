@@ -17,15 +17,34 @@ class TeamSerializer(serializers.ModelSerializer):
     class Meta:
         model = Team
         fields = ('id', 'name', 'slug', 'description', 'created_at')
-        read_only_fields = ('created_at',)
+        read_only_fields = ('created_at', 'slug')
 
 class TeamMemberSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-    
+    # Campos derivados
+    nombre = serializers.CharField(source='user.persona.nombre', read_only=True)
+    apellido = serializers.CharField(source='user.persona.apellido', read_only=True)
+    email = serializers.SerializerMethodField()
+    telefono = serializers.SerializerMethodField()
+
     class Meta:
         model = TeamMember
-        fields = ('id', 'team', 'user', 'role', 'joined_at')
+        # Incluimos los campos públicos + los privados condicionales
+        fields = ('id', 'user', 'team', 'nombre', 'apellido', 'email', 'telefono', 'role', 'joined_at')
         read_only_fields = ('id', 'joined_at')
+
+    def get_email(self, obj):
+        """Devuelve email solo si el usuario está autenticado."""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.user.email
+        return None  # público → no se muestra
+
+    def get_telefono(self, obj):
+        """Devuelve teléfono solo si el usuario está autenticado."""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.user.phone
+        return None
 
 class InvitationSerializer(serializers.ModelSerializer):
     # Utiliza TeamSerializer para obtener todos los detalles del equipo

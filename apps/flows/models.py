@@ -511,25 +511,38 @@ class ConversationSession(models.Model):
         return False
 
     def _get_last_user_message(self):
+        """
+        Obtiene el último mensaje del usuario (entrante/inbound)
+        usando el modelo Message de conversaciones
+        """
         if self.conversacion:
+            # Buscar en los mensajes de la conversación actual
             last_message = (
-                self.conversacion.mensajes
-                .filter(es_respuesta=False)
-                .order_by('-fecha')
+                self.conversacion.messages
+                .filter(direction='INBOUND')  # Solo mensajes entrantes
+                .order_by('-created_at')
                 .first()
             )
         else:
-            # Fallback: buscar en todos los mensajes del lead
-            last_message = (
-                self.lead.mensajes
-                .filter(es_respuesta=False)
-                .order_by('-fecha')
-                .first()
-            )
+            # Fallback: buscar en todas las conversaciones del lead
+            from apps.conversaciones.models import Message, MessageDirection
+            
+            if self.lead:
+                last_message = (
+                    Message.objects
+                    .filter(
+                        conversacion__lead=self.lead,
+                        direction=MessageDirection.INBOUND
+                    )
+                    .order_by('-created_at')
+                    .first()
+                )
+            else:
+                last_message = None
 
         if last_message:
-            print(f"📨 Último mensaje del usuario encontrado: '{last_message.contenido[:50]}...'")
-            return last_message.contenido
+            print(f"📨 Último mensaje del usuario encontrado: '{last_message.content[:50]}...'")
+            return last_message.content
         
         print("❌ No se encontró ningún mensaje del usuario")
         return None
@@ -623,6 +636,18 @@ class ConversationSession(models.Model):
             print(f"❌ Error en debug de entidades: {e}")
             return {}
 
+"""
+    def finish_session(self):
+    def get_next_node(self, user_message=None):
+    def evaluate_condition(self, condition, message_text=None):
+    def _evaluate_single_condition(self, c, message_text=None):  
+    def _evaluate_entity_condition(self, c):
+    def _evaluate_message_condition(self, c, message_text=None):
+    def _get_last_user_message(self):
+    def get_collected_entity_ids(self):
+    def get_entity_value(self, entity_id):
+    def get_collected_entities_debug(self):
+"""
 
 class Path(models.Model):
     node = models.ForeignKey(Node, related_name="paths", on_delete=models.CASCADE)

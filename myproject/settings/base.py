@@ -35,9 +35,16 @@ INSTALLED_APPS = [
     'apps.integraciones.apps.IntegracionesConfig',
     'apps.mensajes.apps.MensajesConfig',
     'apps.flows.apps.FlowsConfig',
+    'apps.tiendas.apps.TiendasConfig',
+    'apps.productos.apps.ProductosConfig',
+    'apps.citas.apps.CitasConfig',
+    'apps.servicios.apps.ServiciosConfig',
+    
+    #Contratos
+    'apps.archivos.apps.ArchivosConfig',
+    'apps.contratos.apps.ContratosConfig',
 
-    #'apps.tiendas.apps.TiendasConfig',
-    #'apps.productos.apps.ProductosConfig',
+    #extra?
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
@@ -59,6 +66,13 @@ ACCOUNT_EMAIL_REQUIRED = True
 SECURE_SSL_REDIRECT = False
 HOST_SCHEME = 'https' 
 PARENT_HOST = 'eabmodel.com'  
+
+
+
+###----configuración de app Archivos -----
+DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB en bytes
+FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB en bytes
+###-------------------
 
 # Corrige la lista de MIDDLEWARE eliminando la duplicación:
 MIDDLEWARE = [
@@ -129,6 +143,7 @@ STATICFILES_DIRS = [
 
 
 AUTHENTICATION_BACKENDS = [
+    'apps.usuarios.backends.EmailBackend',
     'django.contrib.auth.backends.ModelBackend',
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
@@ -150,6 +165,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://192.168.100.12:3000",
     "https://accounts.google.com",
     "http://flow-builder.eabmodel.com",
+    "https://dental-morales.eabmodel.com",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -189,7 +205,9 @@ ALLOWED_HOSTS = [
     '.fly.dev',
     'localhost',
     '127.0.0.1',
-    'api-flow-builder.eabmodel.com'
+    'api-flow-builder.eabmodel.com',
+    '0.0.0.0',
+    'eabmodel.com'
 ]
 
 # También agrega esto para Fly.dev específicamente
@@ -276,6 +294,9 @@ SOCIALACCOUNT_AUTO_SIGNUP = True
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_EMAIL_VERIFICATION = "none"
 ACCOUNT_AUTHENTICATION_METHOD = "email"
+
+ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 
 # URLs de redirección
 LOGIN_REDIRECT_URL = '/'

@@ -1,89 +1,90 @@
-# conversaciones/models.py
+# apps/conversaciones/models.py
 from django.db import models
-from django.conf import settings
-from django.utils import timezone
+from django.contrib.auth import get_user_model
 from apps.teams.models import Team
-from apps.leads.models import Lead
 
+User = get_user_model()
+
+class MessageType(models.TextChoices):
+    TEXT = "TEXT", "Texto"
+    IMAGE = "IMAGE", "Imagen"
+    AUDIO = "AUDIO", "Audio"
+    VIDEO = "VIDEO", "Video"
+    DOCUMENT = "DOCUMENT", "Documento"
+    LOCATION = "LOCATION", "Ubicación"
+
+class MessageDirection(models.TextChoices):
+    INBOUND = "INBOUND", "Entrante"
+    OUTBOUND = "OUTBOUND", "Saliente"
+
+class ConversationStatus(models.TextChoices):
+    ACTIVE = "ACTIVE", "Activa"
+    CLOSED = "CLOSED", "Cerrada"
+    ARCHIVED = "ARCHIVED", "Archivada"
 
 class Conversacion(models.Model):
-    """Modelo para hilos de conversación"""
+    """Conversación principal con un sender"""
+    sender_id = models.CharField(max_length=150, db_index=True)
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='conversaciones')
+    lead = models.ForeignKey('leads.Lead', on_delete=models.SET_NULL, null=True, blank=True, related_name='conversaciones')
     
-    ESTADOS = [
-        ('abierto', 'Abierto'),
-        ('cerrado', 'Cerrado'),
-        ('en_seguimiento', 'En Seguimiento'),
-    ]
+    # Estado
+    status = models.CharField(max_length=20, choices=ConversationStatus.choices, default=ConversationStatus.ACTIVE)
     
-    lead = models.ForeignKey(
-        Lead, 
-        on_delete=models.CASCADE, 
-        related_name='conversaciones'
-    )
-    estado = models.CharField(max_length=20, choices=ESTADOS, default='abierto')
-    asignado_a = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True,
-        related_name='conversaciones_asignadas'
-    )
-    equipo_asignado = models.ForeignKey(
-        Team,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='conversaciones_asignadas'
-    )
+    # Metadatos
+    platform = models.CharField(max_length=50, blank=True, help_text="whatsapp, telegram, etc")
+    platform_data = models.JSONField(blank=True, null=True)
     
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
-    fecha_actualizacion = models.DateTimeField(auto_now=True)
-    fecha_cierre = models.DateTimeField(null=True, blank=True)
+    # Asignación
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_conversations')
     
-    # Métricas de conversación
-    tiempo_respuesta_promedio = models.DurationField(null=True, blank=True)
-    satisfaccion_cliente = models.IntegerField(null=True, blank=True, help_text="1-5 estrellas")
-    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    last_message_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         db_table = 'conversaciones'
-        verbose_name = 'Conversación'
-        verbose_name_plural = 'Conversaciones'
+        unique_together = ('sender_id', 'team')
+        ordering = ['-last_message_at', '-updated_at']
         indexes = [
-            models.Index(fields=['lead', 'estado']),
-            models.Index(fields=['fecha_creacion']),
-            models.Index(fields=['asignado_a']),
+            models.Index(fields=['sender_id', 'team']),
+            models.Index(fields=['team', 'status']),
         ]
-        ordering = ['-fecha_actualizacion']
-    
-    def __str__(self):
-        return f"Conversación con {self.lead.nombre or self.lead.plataforma_id}"
-    
-    def cerrar_conversacion(self):
-        """Método para cerrar una conversación"""
-        self.estado = 'cerrado'
-        self.fecha_cierre = timezone.now()
-        self.save()
-    
-    @property
-    def duracion_conversacion(self):
-        """Calcula la duración de la conversación"""
-        fecha_fin = self.fecha_cierre or timezone.now()
-        return fecha_fin - self.fecha_creacion
-    
-    @property
-    def total_mensajes(self):
-        """Cuenta el total de mensajes en la conversación"""
-        return self.mensajes.count()
-    
-    @property
-    def ultimo_mensaje(self):
-        """Obtiene el último mensaje de la conversación"""
-        return self.mensajes.first()  # Ya está ordenado por -fecha
 
-    @classmethod
-    def create_for_flow(cls, lead, **kwargs):
-        """
-        Crea una conversación inicial para un flow.
-        kwargs se usa para pasar información extra opcional sin romper la creación.
-        """
-        return cls.objects.create(lead=lead)
+    def __str__(self):
+        return f"Conversación {self.sender_id} - {self.team.name}"
+
+class Message(models.Model):
+    """Mensaje individual en una conversación"""
+    conversacion = models.ForeignKey(Conversacion, on_delete=models.CASCADE, related_name='messages')
+    
+    # Dirección del mensaje
+    direction = models.CharField(max_length=10, choices=MessageDirection.choices)
+    
+    # Contenido
+    type = models.CharField(max_length=20, choices=MessageType.choices, default=MessageType.TEXT)
+    content = models.TextField()
+    media_url = models.URLField(blank=True, null=True)
+    
+    # Metadata
+    metadata = models.JSONField(blank=True, null=True, help_text="Datos adicionales del mensaje")
+    external_id = models.CharField(max_length=255, blank=True, null=True, help_text="ID del mensaje en la plataforma externa")
+    
+    # Sender info
+    sender_name = models.CharField(max_length=255, blank=True)
+    sender_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='sent_messages')
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['conversacion', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.direction} - {self.type} - {self.created_at}"
