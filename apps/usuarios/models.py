@@ -21,9 +21,8 @@ class CustomUserManager(BaseUserManager):
 
 class Usuario(AbstractBaseUser, PermissionsMixin):
     id_usuario = models.AutoField(primary_key=True)
-    nombre_usuario = models.CharField(max_length=255, unique=True)
+    nombre_usuario = models.CharField(max_length=255, unique=True, blank=True, null=True)
     email = models.EmailField(unique=True)
-    username = models.CharField(max_length=150, blank=True, null=True, unique=True)  # 👈 Añadir este campo opcional
 
     tipo_usuario = models.CharField(max_length=20, choices=[
         ('administrador', 'Administrador'),
@@ -45,7 +44,7 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     objects = CustomUserManager()
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['nombre_usuario', 'tipo_usuario']
+    REQUIRED_FIELDS = ['tipo_usuario']  # Removido 'nombre_usuario' ya que ahora es opcional
 
     class Meta:
         db_table = 'Usuario'
@@ -54,6 +53,12 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+    
+    def save(self, *args, **kwargs):
+        # Auto-generar nombre_usuario si no existe
+        if not self.nombre_usuario:
+            self.nombre_usuario = self.email.split('@')[0]
+        super().save(*args, **kwargs)
 
 class Persona(models.Model):
     id_persona = models.AutoField(primary_key=True)
@@ -99,44 +104,4 @@ class ActividadUsuario(models.Model):
         verbose_name_plural = 'Actividades de Usuario'
     
     def __str__(self):
-        return f"{self.usuario.nombre} - {self.tipo_actividad} - {self.fecha_actividad}"
-
-
-class DocumentoUsuario(models.Model):
-    TIPO_DOCUMENTO_CHOICES = [
-        ('IDENTIFICACION', 'Identificación'),
-        ('HISTORIA_CLINICA', 'Historia Clínica'),
-        ('RADIOGRAFIA', 'Radiografía'),
-        ('LABORATORIO', 'Laboratorio'),
-        ('RECETA', 'Receta'),
-        ('CONSENTIMIENTO', 'Consentimiento'),
-        ('OTRO', 'Otro'),
-    ]
-    
-    usuario = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='documentos'
-    )
-    tipo_documento = models.CharField(
-        max_length=50,
-        choices=TIPO_DOCUMENTO_CHOICES,
-        default='OTRO'
-    )
-    archivo = models.FileField(upload_to='documentos_usuarios/%Y/%m/')
-    nombre_original = models.CharField(max_length=255, blank=True)
-    descripcion = models.TextField(blank=True)
-    fecha_subida = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        ordering = ['-fecha_subida']
-        verbose_name = 'Documento de Usuario'
-        verbose_name_plural = 'Documentos de Usuario'
-    
-    def __str__(self):
-        return f"{self.usuario.nombre} - {self.nombre_original or self.archivo.name}"
-    
-    def save(self, *args, **kwargs):
-        if not self.nombre_original and self.archivo:
-            self.nombre_original = self.archivo.name
-        super().save(*args, **kwargs)
+        return f"{self.usuario.email} - {self.tipo_actividad} - {self.fecha_actividad}"

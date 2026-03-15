@@ -5,8 +5,7 @@ from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Add DEBUG setting here
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = True
 
 SECRET_KEY = config('SECRET_KEY')
 
@@ -35,7 +34,7 @@ INSTALLED_APPS = [
     'apps.integraciones.apps.IntegracionesConfig',
     'apps.mensajes.apps.MensajesConfig',
     'apps.flows.apps.FlowsConfig',
-    'apps.tiendas.apps.TiendasConfig',
+    #'apps.tiendas.apps.TiendasConfig',
     'apps.productos.apps.ProductosConfig',
     'apps.citas.apps.CitasConfig',
     'apps.servicios.apps.ServiciosConfig',
@@ -58,10 +57,6 @@ REST_USE_JWT = True  # si usas JWT
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 
-# Django AllAuth
-ACCOUNT_EMAIL_VERIFICATION = "none"
-ACCOUNT_AUTHENTICATION_METHOD = "email"
-ACCOUNT_EMAIL_REQUIRED = True
 
 SECURE_SSL_REDIRECT = False
 HOST_SCHEME = 'https' 
@@ -70,8 +65,9 @@ PARENT_HOST = 'eabmodel.com'
 
 
 ###----configuración de app Archivos -----
-DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB en bytes
-FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB en bytes
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10 MB
+
 ###-------------------
 
 # Corrige la lista de MIDDLEWARE eliminando la duplicación:
@@ -137,9 +133,7 @@ TEMPLATES = [
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'frontend', 'build', 'static'),
-]
+
 
 
 AUTHENTICATION_BACKENDS = [
@@ -149,8 +143,6 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 
-# URLs permitidas para redirección después del login
-SOCIALACCOUNT_LOGIN_ON_GET = True
 
 GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
 GOOGLE_CLIENT_SECRET = config('GOOGLE_CLIENT_SECRET', default='')
@@ -159,6 +151,7 @@ FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
 GOOGLE_REDIRECT_URI = 'http://localhost:8000/api/auth/google/callback/'
 GOOGLE_API_KEY=config('GOOGLE_API_KEY', default='')
 
+"""
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -166,7 +159,10 @@ CORS_ALLOWED_ORIGINS = [
     "https://accounts.google.com",
     "http://flow-builder.eabmodel.com",
     "https://dental-morales.eabmodel.com",
+    'https://preview-e-commerce-system-kzmpyhh8rsswilt9ocwn.vusercontent.net',
 ]
+"""
+CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -288,23 +284,22 @@ LOGGING = {
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# Configuración de AllAuth adicional
+# ============================================================================
+# CONFIGURACIÓN ACTUALIZADA DE ALLAUTH (NUEVA SINTAXIS)
+# ============================================================================
+
+ACCOUNT_LOGIN_METHODS = ['email']  # Lista en lugar de set
+ACCOUNT_SIGNUP_FIELDS = ['email']  # Lista de campos requeridos
+ACCOUNT_USER_MODEL_USERNAME_FIELD = 'nombre_usuario'
+
+# Configuraciones adicionales
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_EMAIL_VERIFICATION = "none"
-ACCOUNT_AUTHENTICATION_METHOD = "email"
-
-ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_USER_MODEL_USERNAME_FIELD = None
-
-# URLs de redirección
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/'
 
 # Configuración adicional para desarrollo
 if DEBUG:
     # Permitir HTTP en desarrollo
     SECURE_SSL_REDIRECT = False
     SECURE_PROXY_SSL_HEADER = None
-

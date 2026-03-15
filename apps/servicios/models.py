@@ -10,6 +10,7 @@ class Servicio(models.Model):
     activo = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='servicios')
+    url_img = models.URLField(blank=True, null=True)
 
     class Meta:
         db_table = 'servicios'

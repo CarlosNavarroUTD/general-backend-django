@@ -25,7 +25,7 @@ class EmailBackend(ModelBackend):
             print(f"❌ Usuario no existe con email: {email}")
             return None
         except UserModel.MultipleObjectsReturned:
-            print(f"⚠️ Múltiples usuarios con email: {email}")
+            print(f"⚠ Múltiples usuarios con email: {email}")
             return None
 
         if user.check_password(password):
@@ -38,4 +38,4 @@ class EmailBackend(ModelBackend):
         else:
             print(f"❌ Password incorrecto")
             
-        return None
+        return None(venv)

@@ -55,8 +55,15 @@ class ArchivoListSerializer(serializers.ModelSerializer):
 
 
 class ArchivoCreateSerializer(serializers.ModelSerializer):
-    """Serializer para crear archivos"""
-    
+    tipo_archivo = serializers.ChoiceField(
+        choices=Archivo.TIPO_ARCHIVO_CHOICES,
+        required=False,
+        default='otro'
+    )
+    es_privado = serializers.BooleanField(required=False, default=False)
+    requiere_autenticacion = serializers.BooleanField(required=False, default=True)
+    archivo = serializers.FileField()
+
     class Meta:
         model = Archivo
         fields = [
@@ -65,7 +72,6 @@ class ArchivoCreateSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        # Asignar el usuario actual como quien sube el archivo
         validated_data['subido_por'] = self.context['request'].user
         return super().create(validated_data)
 

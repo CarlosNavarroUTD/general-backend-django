@@ -41,8 +41,8 @@ class TeamViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsTeamAdminOrReadOnly]
 
     def get_permissions(self):
-        # Para add_member: no requiere autenticación ni ser admin
-        if self.action == 'add_member':
+        # Endpoints públicos sin autenticación
+        if self.action in ['add_member', 'public_detail']:
             return [AllowAny()]
         return super().get_permissions()
 
@@ -64,7 +64,7 @@ class TeamViewSet(viewsets.ModelViewSet):
         detail=True, 
         methods=['get'], 
         url_path='members',
-        permission_classes=[AllowAny]  # 👈 permite acceso público
+        permission_classes=[AllowAny]
     )
     def members(self, request, pk=None):
         team = self.get_object()
@@ -202,6 +202,31 @@ class TeamViewSet(viewsets.ModelViewSet):
         serializer = TeamMemberSerializer(member, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @action(
+        detail=False, 
+        methods=['get'], 
+        url_path='public',  # Cambiado para que sea /api/teams/public/?slug=xxx
+        permission_classes=[AllowAny]
+    )
+    def public_detail(self, request):
+        """Obtener detalles públicos de un equipo por slug"""
+        slug = request.query_params.get('slug')
+        
+        if not slug:
+            return Response(
+                {"detail": "Se requiere el parámetro 'slug'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            team = Team.objects.get(slug=slug)
+            serializer = self.get_serializer(team)
+            return Response(serializer.data)
+        except Team.DoesNotExist:
+            return Response(
+                {"detail": "Equipo no encontrado."},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
 class InvitationViewSet(viewsets.ModelViewSet):
     queryset = Invitation.objects.all()

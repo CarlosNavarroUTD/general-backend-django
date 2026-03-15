@@ -11,15 +11,15 @@ class MarcaAdmin(admin.ModelAdmin):
 
 @admin.register(Producto)
 class ProductoAdmin(admin.ModelAdmin):
-    list_display = ['nombre', 'precio', 'categoria', 'marca', 'sitio', 'team', 'activo', 'creado_en']
+    list_display = ['nombre', 'precio', 'categoria', 'marca', 'team', 'activo', 'creado_en']
     list_filter = ['categoria', 'marca', 'activo', 'team', 'creado_en']
-    search_fields = ['nombre', 'descripcion', 'team__name', 'sitio__nombre']
+    search_fields = ['nombre', 'descripcion', 'team__name']
     readonly_fields = ['creado_en', 'actualizado_en']
-    autocomplete_fields = ['team', 'sitio', 'marca']
+    autocomplete_fields = ['team', 'marca']
     
     fieldsets = (
         ('Información básica', {
-            'fields': ('nombre', 'descripcion', 'sitio', 'team')
+            'fields': ('nombre', 'descripcion', 'team')
         }),
         ('Detalles del producto', {
             'fields': ('precio', 'categoria', 'marca', 'activo')
@@ -33,8 +33,8 @@ class ProductoAdmin(admin.ModelAdmin):
 
 @admin.register(Stock)
 class StockAdmin(admin.ModelAdmin):
-    list_display = ['producto', 'sucursal', 'cantidad', 'actualizado_en']
-    list_filter = ['sucursal', 'actualizado_en']
-    search_fields = ['producto__nombre', 'sucursal__nombre']
+    list_display = ['producto', 'cantidad', 'actualizado_en']
+    list_filter = ['actualizado_en']
+    search_fields = ['producto__nombre']
     readonly_fields = ['actualizado_en']
-    autocomplete_fields = ['producto', 'sucursal']
+    autocomplete_fields = ['producto']

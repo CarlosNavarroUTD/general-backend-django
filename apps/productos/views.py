@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import Count, Sum, Q, Avg
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Marca, Producto, Stock
@@ -11,7 +11,8 @@ from .serializers import (
     ProductoDetailSerializer,
     ProductoCreateUpdateSerializer,
     StockSerializer,
-    StockCreateUpdateSerializer
+    StockCreateUpdateSerializer,
+    ProductoPublicoSerializer
 )
 
 
@@ -43,13 +44,13 @@ class ProductoViewSet(viewsets.ModelViewSet):
     """
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['categoria', 'marca', 'sitio', 'activo']
+    filterset_fields = ['categoria', 'marca', 'activo', 'team']
     search_fields = ['nombre', 'descripcion']
     ordering_fields = ['nombre', 'precio', 'creado_en']
     
     def get_queryset(self):
         user = self.request.user
-        queryset = Producto.objects.select_related('marca', 'sitio', 'team')
+        queryset = Producto.objects.select_related('marca', 'team')
         
         # Filtrar por teams del usuario usando TeamMember
         user_teams = user.teams.values_list('team', flat=True)
@@ -87,20 +88,89 @@ class ProductoViewSet(viewsets.ModelViewSet):
             return ProductoCreateUpdateSerializer
         return ProductoListSerializer
     
+    # ============ ENDPOINT PÚBLICO ============
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny], url_path='publico/(?P<team_slug>[^/.]+)')
+    def publico(self, request, team_slug=None):
+        """
+        Endpoint público para obtener productos de un team específico
+        URL: /api/productos/publico/{team_slug}/
+        """
+        if not team_slug:
+            return Response(
+                {'error': 'Se requiere el slug del team'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Obtener productos activos del team
+        productos = Producto.objects.filter(
+            team__slug=team_slug,
+            activo=True
+        ).select_related('marca', 'team')
+        
+        # Aplicar filtros opcionales
+        categoria = request.query_params.get('categoria', None)
+        if categoria:
+            productos = productos.filter(categoria=categoria)
+        
+        marca = request.query_params.get('marca', None)
+        if marca:
+            productos = productos.filter(marca__id=marca)
+        
+        precio_min = request.query_params.get('precio_min', None)
+        precio_max = request.query_params.get('precio_max', None)
+        
+        if precio_min:
+            productos = productos.filter(precio__gte=precio_min)
+        if precio_max:
+            productos = productos.filter(precio__lte=precio_max)
+        
+        con_stock = request.query_params.get('con_stock', None)
+        if con_stock and con_stock.lower() == 'true':
+            productos = productos.filter(
+                stock_entries__cantidad__gt=0
+            ).distinct()
+        
+        # Búsqueda por texto
+        search = request.query_params.get('search', None)
+        if search:
+            productos = productos.filter(
+                Q(nombre__icontains=search) | 
+                Q(descripcion__icontains=search)
+            )
+        
+        # Ordenamiento
+        ordering = request.query_params.get('ordering', '-creado_en')
+        productos = productos.order_by(ordering)
+        
+        serializer = ProductoPublicoSerializer(productos, many=True)
+        return Response({
+            'team_slug': team_slug,
+            'total': productos.count(),
+            'productos': serializer.data
+        })
+    
     @action(detail=True, methods=['get'])
     def stock(self, request, pk=None):
         """
-        Obtener el stock de un producto en todas las tiendas
+        Obtener el stock de un producto
         """
         producto = self.get_object()
-        stocks = producto.stock_entries.select_related('sucursal')
-        serializer = StockSerializer(stocks, many=True)
-        return Response(serializer.data)
+        stock = producto.stock_entries.first()
+        
+        if stock:
+            serializer = StockSerializer(stock)
+            return Response(serializer.data)
+        else:
+            return Response({
+                'mensaje': 'Este producto no tiene stock registrado',
+                'producto_id': producto.id,
+                'producto_nombre': producto.nombre
+            })
     
     @action(detail=False, methods=['get'])
     def sin_stock(self, request):
         """
-        Obtener productos sin stock en ninguna tienda
+        Obtener productos sin stock
         """
         productos = self.get_queryset().filter(
             Q(stock_entries__isnull=True) | 
@@ -152,12 +222,12 @@ class StockViewSet(viewsets.ModelViewSet):
     """
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['producto', 'sucursal']
+    filterset_fields = ['producto']
     ordering_fields = ['cantidad', 'actualizado_en']
     
     def get_queryset(self):
         user = self.request.user
-        queryset = Stock.objects.select_related('producto', 'sucursal')
+        queryset = Stock.objects.select_related('producto', 'producto__team', 'producto__marca')
         
         # Filtrar por teams del usuario usando TeamMember
         user_teams = user.teams.values_list('team', flat=True)
@@ -171,6 +241,11 @@ class StockViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(cantidad__lte=limite)
             except ValueError:
                 pass
+        
+        # Filtro por team slug
+        team_slug = self.request.query_params.get('team_slug', None)
+        if team_slug:
+            queryset = queryset.filter(producto__team__slug=team_slug)
         
         return queryset
     
@@ -201,7 +276,7 @@ class StockViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def sin_stock(self, request):
         """
-        Obtener productos sin stock
+        Obtener productos sin stock (cantidad = 0)
         """
         stocks = self.get_queryset().filter(cantidad=0)
         serializer = self.get_serializer(stocks, many=True)
@@ -236,3 +311,61 @@ class StockViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(stock)
         return Response(serializer.data)
+    
+    @action(detail=False, methods=['post'])
+    def crear_o_actualizar(self, request):
+        """
+        Crear o actualizar stock de un producto
+        Si el producto ya tiene stock, lo actualiza; si no, lo crea
+        """
+        producto_id = request.data.get('producto')
+        cantidad = request.data.get('cantidad')
+        
+        if not producto_id:
+            return Response(
+                {'error': 'Se requiere el ID del producto'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            cantidad = int(cantidad)
+            if cantidad < 0:
+                return Response(
+                    {'error': 'La cantidad no puede ser negativa'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'La cantidad debe ser un número entero'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            from .models import Producto
+            producto = Producto.objects.get(id=producto_id)
+            
+            # Verificar que el usuario tenga acceso a este producto
+            user_teams = request.user.teams.values_list('team', flat=True)
+            if producto.team.id not in user_teams:
+                return Response(
+                    {'error': 'No tienes permisos para modificar este producto'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Crear o actualizar
+            stock, created = Stock.objects.update_or_create(
+                producto=producto,
+                defaults={'cantidad': cantidad}
+            )
+            
+            serializer = self.get_serializer(stock)
+            return Response({
+                'mensaje': 'Stock creado' if created else 'Stock actualizado',
+                'stock': serializer.data
+            }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+            
+        except Producto.DoesNotExist:
+            return Response(
+                {'error': 'Producto no encontrado'},
+                status=status.HTTP_404_NOT_FOUND
+            )
