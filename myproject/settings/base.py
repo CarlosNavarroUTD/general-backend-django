@@ -5,7 +5,7 @@ from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-DEBUG = True
+DEBUG = False
 
 SECRET_KEY = config('SECRET_KEY')
 
@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'apps.productos.apps.ProductosConfig',
     'apps.citas.apps.CitasConfig',
     'apps.servicios.apps.ServiciosConfig',
+    'apps.notas.apps.NotasConfig',
     
     #Contratos
     'apps.archivos.apps.ArchivosConfig',

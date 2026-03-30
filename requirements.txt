@@ -18,7 +18,7 @@ oauthlib==3.2.2
 packaging==25.0
 pillow==11.2.1
 psycopg==3.2.9
-psycopg-binary==3.2.9
+psycopg-binary>=3.2.10
 psycopg2==2.9.10
 psycopg2-binary==2.9.10
 pycparser==2.22
