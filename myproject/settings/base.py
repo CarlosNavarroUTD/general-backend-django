@@ -54,9 +54,7 @@ SITE_ID = 1
 
 REST_USE_JWT = True  # si usas JWT
 
-# Configura redireccionamientos
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/'
+
 
 
 SECURE_SSL_REDIRECT = False
@@ -186,6 +184,7 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_TRUSTED_ORIGINS = [
     "https://axol-backend.fly.dev",
     "https://axolstores.eabmodel.com",
+    'https://api.eabmodel.com',
     "http://localhost:8000",
 ]
 SESSION_COOKIE_SECURE = True
@@ -196,13 +195,10 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 
 STORE_BASE_DOMAIN = 'eabmodel.com'  
 
-# Para producción en Fly.dev
 ALLOWED_HOSTS = [
-    'axol-backend.fly.dev',
-    '.fly.dev',
+    'api.eabmodel.com',
     'localhost',
     '127.0.0.1',
-    'api-flow-builder.eabmodel.com',
     '0.0.0.0',
     'eabmodel.com'
 ]
