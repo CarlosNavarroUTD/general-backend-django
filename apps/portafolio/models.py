@@ -26,15 +26,16 @@ class Portafolio(models.Model):
     
     disponible = models.BooleanField(default=True)
 
-    giro = models.CharField(max_length=50, choices=GIRO_CHOICES)
-    cliente = models.CharField(max_length=255)
-    campana = models.CharField(max_length=255)
-    formato = models.CharField(max_length=50, choices=FORMAT_CHOICES)
-    duracion = models.IntegerField(help_text="Duración en días")
-    impactos = models.IntegerField()
-    engagement = models.FloatField(help_text="Porcentaje de engagement")
-    roi = models.FloatField(help_text="Retorno sobre inversión")
-    imagen = models.ImageField(upload_to='portafolio/')
+    giro = models.CharField(max_length=50)
+
+    cliente = models.CharField(max_length=255,blank=True, null=True)
+    campana = models.CharField(max_length=255, blank=True, null=True)
+    formato = models.CharField(max_length=50,blank=True, null=True)
+    duracion = models.CharField(max_length=50, blank=True, null=True)
+    impactos = models.CharField(max_length=50, blank=True, null=True)
+    engagement = models.CharField(max_length=50, blank=True, null=True)
+    roi = models.CharField(max_length=50, blank=True, null=True)
+    imagen = models.CharField(max_length=50, blank=True, null=True)
     
     class Meta:
         verbose_name = 'Portafolio'
