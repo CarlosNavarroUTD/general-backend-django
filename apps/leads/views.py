@@ -75,18 +75,3 @@ class MensajeFilter(filters.FilterSet):
             return queryset.filter(procesado=False)
         return queryset
 
-# ViewSets principales
-class EquipoViewSet(viewsets.ModelViewSet):
-    """ViewSet para equipos"""
-    queryset = Equipo.objects.all()
-    pagination_class = StandardResultsSetPagination
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return EquipoCreateSerializer
-        return EquipoSerializer
-    
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        if self.action ==

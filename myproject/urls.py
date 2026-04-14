@@ -35,7 +35,7 @@ urlpatterns = [
     path('api/', include('apps.productos.urls')),
     path('api/', include('apps.citas.urls')),
     path('api/', include('apps.servicios.urls')),
-    path('api/', include('apps.notas.urls')),
+    #path('api/', include('apps.notas.urls')),
     
     path('api/', include('apps.conversaciones.urls')),
     path('api/', include('apps.archivos.urls')),
@@ -44,6 +44,8 @@ urlpatterns = [
     #path('api/', include('apps.mensajes.urls')),
     #path('api/', include('apps.leads.urls')),
 
+    ## Detalles de la tienda
+    path('api/', include('apps.portafolio.urls')),
 
     path('health/', HealthCheckView.as_view(), name='health_check'),
     path('webhook/<slug:team_slug>/<slug:flow_slug>/', FlowWebhookView.as_view(), name='flow-webhook'),

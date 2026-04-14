@@ -38,8 +38,9 @@ INSTALLED_APPS = [
     'apps.productos.apps.ProductosConfig',
     'apps.citas.apps.CitasConfig',
     'apps.servicios.apps.ServiciosConfig',
-    'apps.notas.apps.NotasConfig',
-    
+    #'apps.notas.apps.NotasConfig',
+    'apps.portafolio.apps.PortafolioConfig',
+
     #Contratos
     'apps.archivos.apps.ArchivosConfig',
     'apps.contratos.apps.ContratosConfig',
