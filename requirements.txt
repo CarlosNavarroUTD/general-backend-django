@@ -20,7 +20,8 @@ idna==3.10
 oauthlib==3.2.2
 packaging==25.0
 pillow==11.2.1
-psycopg[binary]>=3.2,<3.4
+psycopg==3.3.3
+psycopg-binary==3.3.3
 pycparser==2.22
 PyJWT==2.9.0
 PyPDF2==3.0.1
