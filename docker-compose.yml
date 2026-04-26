@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    container_name: django_api
+    restart: always
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=myproject.settings.production
+    networks:
+      - n8n_network
+
+networks:
+  n8n_network:
+    external: true
+    name: n8n_n8n_network

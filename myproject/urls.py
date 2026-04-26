@@ -26,6 +26,9 @@ urlpatterns = [
     path('api/auth/', include('dj_rest_auth.urls')),
     path('api/auth/registration/', include('dj_rest_auth.registration.urls')),
 
+    #Campos personalizados    
+    path('api/', include('apps.campos.urls')),
+
     path('api/', include('apps.usuarios.urls')),
     path('api/', include('apps.teams.urls')), 
     path('api/', include('apps.tasks.urls')),

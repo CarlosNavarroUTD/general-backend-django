@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'apps.servicios.apps.ServiciosConfig',
     #'apps.notas.apps.NotasConfig',
     'apps.portafolio.apps.PortafolioConfig',
+    'apps.campos.apps.CamposConfig',
 
     #Contratos
     'apps.archivos.apps.ArchivosConfig',
@@ -201,7 +202,8 @@ ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
     '0.0.0.0',
-    'eabmodel.com'
+    'eabmodel.com',
+    'django_api',
 ]
 
 # También agrega esto para Fly.dev específicamente
@@ -301,3 +303,12 @@ if DEBUG:
     # Permitir HTTP en desarrollo
     SECURE_SSL_REDIRECT = False
     SECURE_PROXY_SSL_HEADER = None
+
+
+
+## R2 Configuration
+R2_ENDPOINT = os.getenv("R2_ENDPOINT")
+R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID")
+R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY")
+R2_BUCKET = os.getenv("R2_BUCKET_NAME")
+R2_PUBLIC_URL = os.getenv("R2_PUBLIC_URL")

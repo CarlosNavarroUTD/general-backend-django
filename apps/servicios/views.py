@@ -8,63 +8,11 @@ from django.core.files.storage import default_storage
 from django.conf import settings
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import Servicio, CampoPersonalizado
+from .models import Servicio
 from .serializers import (
     ServicioSerializer,
     ServicioPublicoSerializer,
-    CampoPersonalizadoSerializer,
 )
-
-
-# ──────────────────────────────────────────────
-# CampoPersonalizado — definiciones de campos
-# ──────────────────────────────────────────────
-
-class CampoPersonalizadoViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet para gestionar las DEFINICIONES de campos personalizados de un team.
-
-    Endpoints:
-        GET    /api/campos-personalizados/             → lista campos del team
-        POST   /api/campos-personalizados/             → crea un campo
-        GET    /api/campos-personalizados/{id}/        → detalle
-        PUT    /api/campos-personalizados/{id}/        → actualización total
-        PATCH  /api/campos-personalizados/{id}/        → actualización parcial
-        DELETE /api/campos-personalizados/{id}/        → elimina el campo
-    """
-    permission_classes = [IsAuthenticated]
-    serializer_class = CampoPersonalizadoSerializer
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['nombre']
-    ordering_fields = ['nombre', 'tipo']
-
-    def get_queryset(self):
-        user = self.request.user
-        user_teams = user.teams.values_list('team', flat=True)
-        queryset = CampoPersonalizado.objects.filter(team__id__in=user_teams)
-
-        # Filtro opcional por team_slug
-        team_slug = self.request.query_params.get('team_slug')
-        if team_slug:
-            queryset = queryset.filter(team__slug=team_slug)
-
-        # Filtro opcional por tipo
-        tipo = self.request.query_params.get('tipo')
-        if tipo:
-            queryset = queryset.filter(tipo=tipo)
-
-        return queryset
-
-    def perform_create(self, serializer):
-        """Si no se especifica team, usa el primer team del usuario."""
-        if 'team' not in self.request.data:
-            user_teams = self.request.user.teams.all()
-            if user_teams.exists():
-                serializer.save(team=user_teams.first().team)
-            else:
-                serializer.save()
-        else:
-            serializer.save()
 
 
 # ──────────────────────────────────────────────
@@ -106,9 +54,7 @@ class ServicioViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         user_teams = user.teams.values_list('team', flat=True)
-        queryset = Servicio.objects.select_related('team').prefetch_related(
-            'campos_valores__campo'
-        ).filter(team__id__in=user_teams)
+        queryset = Servicio.objects.select_related('team').filter(team__id__in=user_teams)
 
         # Filtros opcionales por query params
         precio_min = self.request.query_params.get('precio_min')
@@ -163,7 +109,7 @@ class ServicioViewSet(viewsets.ModelViewSet):
         servicios = Servicio.objects.filter(
             team__slug=team_slug,
             activo=True
-        ).select_related('team').prefetch_related('campos_valores__campo')
+        ).select_related('team')
 
         # Filtros opcionales
         precio_min = request.query_params.get('precio_min')

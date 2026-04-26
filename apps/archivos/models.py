@@ -1,8 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
-from django.core.validators import FileExtensionValidator
 import uuid
-import hashlib
 
 User = get_user_model()
 
@@ -12,9 +10,10 @@ class Archivo(models.Model):
     Modelo para almacenar archivos subidos por el equipo
     """
     TIPO_ARCHIVO_CHOICES = [
-        ('contrato', 'Contrato'),
-        ('documento', 'Documento'),
         ('imagen', 'Imagen'),
+        ('video', 'Video'),
+        ('audio', 'Audio'),
+        ('documento', 'Documento'),
         ('otro', 'Otro'),
     ]
 
@@ -22,10 +21,8 @@ class Archivo(models.Model):
     team = models.ForeignKey('teams.Team', on_delete=models.CASCADE, related_name='archivos')
     nombre = models.CharField(max_length=255)
     descripcion = models.TextField(blank=True, null=True)
-    archivo = models.FileField(
-        upload_to='archivos/%Y/%m/%d/',
-        validators=[FileExtensionValidator(allowed_extensions=['pdf', 'docx', 'doc', 'jpg', 'jpeg', 'png', 'xlsx', 'csv', 'gif', 'webp'])]
-    )
+    archivo_url = models.URLField()
+    archivo_key = models.CharField(max_length=500)
     tipo_archivo = models.CharField(max_length=20, choices=TIPO_ARCHIVO_CHOICES, default='documento')
     
     # Metadatos

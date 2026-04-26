@@ -5,13 +5,20 @@ from django.db.models import Q
 from django.utils import timezone
 from .models import Archivo, AccesoArchivo
 from apps.teams.models import Team
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from .serializers import (
     ArchivoSerializer, ArchivoListSerializer, ArchivoCreateSerializer,
     AccesoArchivoSerializer
 )
 
+import uuid
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.conf import settings
+import boto3
+from botocore.client import Config
 
 class IsTeamMember(permissions.BasePermission):
 
@@ -35,7 +42,17 @@ class IsTeamMember(permissions.BasePermission):
 class ArchivoViewSet(viewsets.ModelViewSet):
     """ViewSet para gestión de archivos"""
     permission_classes = [permissions.IsAuthenticated, IsTeamMember]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def create(self, request, *args, **kwargs):
+        print("DATA RECIBIDA:", request.data)
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            print("ERRORES:", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -274,6 +291,59 @@ class ArchivoViewSet(viewsets.ModelViewSet):
         else:
             ip = self.request.META.get('REMOTE_ADDR')
         return ip
+    
+    @action(
+            detail=False, 
+            methods=['post'], 
+            url_path='signed-url',
+            parser_classes=[JSONParser]
+
+            )
+    def signed_url(self, request):
+        file_name = request.data.get("file_name")
+        file_type = request.data.get("file_type")
+        folder = request.data.get("folder", "general")
+
+        if not file_name or not file_type:
+            return Response({"detail": "Faltan datos"}, status=400)
+
+        allowed_types = [
+            "application/pdf",
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+        ]
+        if file_type not in allowed_types:
+            return Response({"detail": "Tipo no permitido"}, status=400)
+
+        key = f"{folder}/{uuid.uuid4()}-{file_name}"
+
+        s3 = boto3.client(
+            "s3",
+            endpoint_url=settings.R2_ENDPOINT,
+            aws_access_key_id=settings.R2_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
+            config=Config(signature_version="s3v4"),
+            region_name="auto",
+        )
+
+        upload_url = s3.generate_presigned_url(
+            "put_object",
+            Params={
+                "Bucket": settings.R2_BUCKET,
+                "Key": key,
+                "ContentType": file_type,
+            },
+            ExpiresIn=60,
+        )
+
+        public_url = f"{settings.R2_PUBLIC_URL}/{key}"
+
+        return Response({
+            "uploadUrl": upload_url,
+            "publicUrl": public_url,
+            "key": key,
+        })
 
 
 class AccesoArchivoViewSet(viewsets.ReadOnlyModelViewSet):

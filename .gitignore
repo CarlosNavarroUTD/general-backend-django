@@ -19,6 +19,8 @@ ENV/
 Pipfile.lock
 poetry.lock
 
+entrypoint.sh
+
 # --- Django ---
 *.sqlite3
 db.sqlite3

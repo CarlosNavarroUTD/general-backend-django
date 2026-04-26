@@ -6,76 +6,55 @@ User = get_user_model()
 
 
 class ArchivoSerializer(serializers.ModelSerializer):
-    """Serializer principal para archivos"""
     subido_por_info = serializers.SerializerMethodField()
-    url_archivo = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Archivo
         fields = [
-            'id', 'team', 'nombre', 'descripcion', 'archivo', 'url_archivo',
-            'tipo_archivo', 'tamano', 'hash_sha256', 'subido_por',
-            'subido_por_info', 'fecha_subida', 'fecha_modificacion',
+            'id', 'team', 'nombre', 'descripcion',
+            'archivo_url', 'archivo_key',
+            'tipo_archivo', 'tamano', 'hash_sha256',
+            'subido_por', 'subido_por_info',
+            'fecha_subida', 'fecha_modificacion',
             'es_privado', 'requiere_autenticacion'
         ]
-        read_only_fields = ['id', 'hash_sha256', 'tamano', 'fecha_subida', 'fecha_modificacion', 'subido_por']
-
-    def get_subido_por_info(self, obj):
-        if obj.subido_por:
-            return {
-                'id': obj.subido_por.id,
-                'email': obj.subido_por.email,
-                'nombre': obj.subido_por.get_full_name() if hasattr(obj.subido_por, 'get_full_name') else obj.subido_por.email
-            }
-        return None
-
-    def get_url_archivo(self, obj):
-        request = self.context.get('request')
-        if obj.archivo and request:
-            return request.build_absolute_uri(obj.archivo.url)
-        return None
-
-    def validate_archivo(self, value):
-        """Validar tamaño del archivo (máximo 50MB)"""
-        if value.size > 50 * 1024 * 1024:  # 50MB
-            raise serializers.ValidationError("El archivo no puede superar los 50MB.")
-        return value
-
+        read_only_fields = [
+            'id', 'hash_sha256', 'tamano',
+            'fecha_subida', 'fecha_modificacion', 'subido_por'
+        ]
 
 class ArchivoListSerializer(serializers.ModelSerializer):
     """Serializer simplificado para listados"""
-    subido_por_nombre = serializers.CharField(source='subido_por.email', read_only=True)
+    subido_por_nombre = serializers.CharField(source='subido_por.get_full_name', read_only=True)
+
     
     class Meta:
         model = Archivo
         fields = [
             'id', 'nombre', 'tipo_archivo', 'tamano', 'fecha_subida',
-            'subido_por_nombre', 'es_privado'
+            'subido_por_nombre', 'es_privado',  'archivo_url'
         ]
+    
+    def get_url(self, obj):
+        return obj.archivo_url
 
 
 class ArchivoCreateSerializer(serializers.ModelSerializer):
-    tipo_archivo = serializers.ChoiceField(
-        choices=Archivo.TIPO_ARCHIVO_CHOICES,
-        required=False,
-        default='otro'
-    )
-    es_privado = serializers.BooleanField(required=False, default=False)
-    requiere_autenticacion = serializers.BooleanField(required=False, default=True)
-    archivo = serializers.FileField()
-
+    archivo_url = serializers.URLField(required=True)
+    archivo_key = serializers.CharField(required=True)
+    tamano = serializers.IntegerField(required=False)
     class Meta:
         model = Archivo
         fields = [
-            'team', 'nombre', 'descripcion', 'archivo', 'tipo_archivo',
-            'es_privado', 'requiere_autenticacion'
+            'team', 'nombre', 'descripcion',
+            'archivo_url', 'archivo_key', 'tamano', 
+            'tipo_archivo', 'es_privado', 'requiere_autenticacion'
         ]
 
     def create(self, validated_data):
         validated_data['subido_por'] = self.context['request'].user
         return super().create(validated_data)
-
-
+    
 class AccesoArchivoSerializer(serializers.ModelSerializer):
     """Serializer para registrar accesos a archivos"""
     usuario_email = serializers.CharField(source='usuario.email', read_only=True)

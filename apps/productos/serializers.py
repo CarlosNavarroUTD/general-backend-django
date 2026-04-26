@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Marca, Producto, Stock
+from apps.campos.serializers import CamposPersonalizadosMixin
 
 
 class MarcaSerializer(serializers.ModelSerializer):
@@ -14,7 +15,7 @@ class MarcaSerializer(serializers.ModelSerializer):
         return obj.productos.count()
 
 
-class ProductoPublicoSerializer(serializers.ModelSerializer):
+class ProductoPublicoSerializer(CamposPersonalizadosMixin, serializers.ModelSerializer):
     """
     Serializer simplificado para endpoint público
     No expone información sensible del team
@@ -34,6 +35,7 @@ class ProductoPublicoSerializer(serializers.ModelSerializer):
             'stock_disponible',
             'creado_en',
             'imagenes'
+            'personalizados',
         ]
     
     def get_stock_disponible(self, obj):
