@@ -1,7 +1,7 @@
 # leads/serializers.py
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Equipo, Lead, ActividadLead
+from .models import Lead, ActividadLead
 from apps.teams.serializers import TeamSerializer 
 
 class LeadListSerializer(serializers.ModelSerializer):
@@ -9,8 +9,9 @@ class LeadListSerializer(serializers.ModelSerializer):
     plataforma_display = serializers.CharField(source='get_plataforma_display', read_only=True)
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
     fuente_display = serializers.CharField(source='get_fuente_display', read_only=True)
-    asignado_a_nombre = serializers.CharField(source='asignado_a.nombre', read_only=True)
-    mensajes_count = serializers.ReadOnlyField()
+    asignado_a_nombre = serializers.CharField(source='asignado_a.name', read_only=True)
+    usuario_asignado = serializers.PrimaryKeyRelatedField(read_only=True)
+    usuario_asignado_nombre = serializers.SerializerMethodField()
     dias_desde_creacion = serializers.SerializerMethodField()
     
     class Meta:
@@ -18,9 +19,15 @@ class LeadListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'nombre', 'plataforma', 'plataforma_display', 'plataforma_id',
             'telefono', 'email', 'estado', 'estado_display', 'fuente', 'fuente_display',
-            'asignado_a', 'asignado_a_nombre', 'fecha_creacion', 'ultima_interaccion',
-            'valor_estimado', 'probabilidad_conversion', 'mensajes_count', 'dias_desde_creacion'
+            'asignado_a', 'asignado_a_nombre', 'usuario_asignado', 'usuario_asignado_nombre',
+            'fecha_creacion', 'ultima_interaccion',
+            'valor_estimado', 'probabilidad_conversion', 'dias_desde_creacion'
         ]
+    
+    def get_usuario_asignado_nombre(self, obj):
+        if obj.usuario_asignado:
+            return f"{obj.usuario_asignado.first_name} {obj.usuario_asignado.last_name}".strip() or obj.usuario_asignado.username
+        return None
     
     def get_dias_desde_creacion(self, obj):
         from django.utils import timezone
@@ -32,8 +39,9 @@ class LeadDetailSerializer(serializers.ModelSerializer):
     plataforma_display = serializers.CharField(source='get_plataforma_display', read_only=True)
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
     fuente_display = serializers.CharField(source='get_fuente_display', read_only=True)
-    asignado_a = EquipoSerializer(read_only=True)
-    mensajes_count = serializers.ReadOnlyField()
+    asignado_a_detalle = TeamSerializer(source='asignado_a', read_only=True)
+    usuario_asignado = serializers.PrimaryKeyRelatedField(read_only=True)
+    usuario_asignado_nombre = serializers.SerializerMethodField()
     
     # Estadísticas adicionales
     tiempo_en_estado_actual = serializers.SerializerMethodField()
@@ -44,10 +52,16 @@ class LeadDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'nombre', 'plataforma', 'plataforma_display', 'plataforma_id',
             'telefono', 'email', 'estado', 'estado_display', 'fuente', 'fuente_display',
-            'asignado_a', 'fecha_creacion', 'fecha_actualizacion', 'ultima_interaccion',
-            'notas', 'valor_estimado', 'probabilidad_conversion', 'mensajes_count',
+            'asignado_a', 'asignado_a_detalle', 'usuario_asignado', 'usuario_asignado_nombre',
+            'fecha_creacion', 'fecha_actualizacion', 'ultima_interaccion',
+            'notas', 'valor_estimado', 'probabilidad_conversion',
             'tiempo_en_estado_actual', 'actividades_recientes'
         ]
+    
+    def get_usuario_asignado_nombre(self, obj):
+        if obj.usuario_asignado:
+            return f"{obj.usuario_asignado.first_name} {obj.usuario_asignado.last_name}".strip() or obj.usuario_asignado.username
+        return None
     
     def get_tiempo_en_estado_actual(self, obj):
         from django.utils import timezone
@@ -69,7 +83,7 @@ class LeadCreateUpdateSerializer(serializers.ModelSerializer):
         model = Lead
         fields = [
             'nombre', 'plataforma', 'plataforma_id', 'telefono', 'email',
-            'estado', 'fuente', 'asignado_a', 'notas', 'valor_estimado',
+            'estado', 'fuente', 'asignado_a', 'usuario_asignado', 'notas', 'valor_estimado',
             'probabilidad_conversion'
         ]
     

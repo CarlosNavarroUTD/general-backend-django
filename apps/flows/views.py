@@ -684,6 +684,11 @@ class FlowViewSet(viewsets.ModelViewSet):
         from .models import Flow
         
         user = self.request.user
+        team_id = self.request.query_params.get('team') or self.request.query_params.get('team_id')
+        if team_id:
+            if not user.teams.filter(team_id=team_id).exists():
+                return Flow.objects.none()
+            return Flow.objects.filter(team_id=team_id)
         user_teams = Team.objects.filter(members__user=user)
         return Flow.objects.filter(team__in=user_teams)
     
@@ -762,11 +767,16 @@ class EntityViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         from .models import Entity
         
-        queryset = Entity.objects.all()
-        if hasattr(self.request.user, 'teams'):
-            user_team_ids = self.request.user.teams.values_list('team_id', flat=True)
-            queryset = queryset.filter(team__id__in=user_team_ids)
-        return queryset
+        user = self.request.user
+        team_id = self.request.query_params.get('team') or self.request.query_params.get('team_id')
+        if team_id:
+            if not user.teams.filter(team_id=team_id).exists():
+                return Entity.objects.none()
+            return Entity.objects.filter(team_id=team_id)
+        if hasattr(user, 'teams'):
+            user_team_ids = user.teams.values_list('team_id', flat=True)
+            return Entity.objects.filter(team__id__in=user_team_ids)
+        return Entity.objects.none()
     
     def get_serializer_class(self):
         from .serializers import EntitySerializer

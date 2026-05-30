@@ -21,6 +21,11 @@ import json
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+# Allauth & Social Auth
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from dj_rest_auth.registration.views import SocialLoginView
+
 from .models import Usuario, Persona, ActividadUsuario
 from .serializers import UsuarioSerializer, PersonaSerializer, ActividadUsuarioSerializer
 
@@ -41,6 +46,14 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         if self.action == 'create':
             return [permissions.AllowAny()]
         return [permissions.IsAuthenticated(), IsOwnerOrAdmin()]
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        # Enviar correo de confirmación manualmente usando allauth
+        from allauth.account.utils import send_email_confirmation
+        user = Usuario.objects.get(id_usuario=response.data.get('id_usuario') or response.data.get('id'))
+        send_email_confirmation(request, user)
+        return response
 
     def get_queryset(self):
         if self.request.user.is_staff:
@@ -145,6 +158,16 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             raise serializers.ValidationError({
                 "detail": "Usuario inactivo"
             })
+            
+        # Verificar que el correo esté confirmado (Allauth)
+        from allauth.account.models import EmailAddress
+        email_address = EmailAddress.objects.filter(user=user, email__iexact=email).first()
+        if not email_address or not email_address.verified:
+            # Si el usuario es de google, el socialaccount_autosignup a veces lo auto-verifica
+            # pero para registro normal, fallará aquí.
+            raise serializers.ValidationError({
+                "detail": "Debes verificar tu correo electrónico antes de iniciar sesión."
+            })
         
         # Generar tokens
         refresh = self.get_token(user)
@@ -161,3 +184,39 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
+
+# ========== VISTAS PARA GOOGLE AUTH (REST) ==========
+
+class CustomOAuth2Client(OAuth2Client):
+    """
+    Parche para solucionar la incompatibilidad entre dj-rest-auth y allauth >= 0.60.
+    dj-rest-auth v7 pasa 'scope' como argumento posicional #7, pero allauth v65+
+    espera 'scope_delimiter' en esa posición. Esto causa 'multiple values'.
+    Solución: capturar todos los args/kwargs y reconstruir la llamada limpiamente.
+    """
+    def __init__(self, request, consumer_key, consumer_secret, access_token_method,
+                 access_token_url, callback_url, *args, **kwargs):
+        # dj-rest-auth pasa: scope (positional), scope_delimiter, headers, basic_auth (kwargs)
+        # allauth espera: scope_delimiter, headers, basic_auth (todos kwargs o por posición)
+        # Solución: ignorar args (que contiene 'scope') y pasar solo los kwargs válidos
+        super().__init__(
+            request,
+            consumer_key,
+            consumer_secret,
+            access_token_method,
+            access_token_url,
+            callback_url,
+            scope_delimiter=kwargs.get('scope_delimiter', ' '),
+            headers=kwargs.get('headers', None),
+            basic_auth=kwargs.get('basic_auth', False),
+        )
+
+class GoogleLogin(SocialLoginView):
+    adapter_class = GoogleOAuth2Adapter
+    # "postmessage" es requerido por @react-oauth/google cuando usa flow: "auth-code" (popup)
+    callback_url = "postmessage"
+    client_class = CustomOAuth2Client
+
+    def post(self, request, *args, **kwargs):
+        print(f"🔍 GoogleLogin attempt with data: {request.data}")
+        return super().post(request, *args, **kwargs)

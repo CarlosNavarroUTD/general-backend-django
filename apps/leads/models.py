@@ -62,6 +62,13 @@ class Lead(models.Model):
         blank=True,
         related_name='leads_asignados'
     )
+    usuario_asignado = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='leads_asignados_usuario'
+    )
     
     # Campos adicionales para tracking
     fecha_creacion = models.DateTimeField(auto_now_add=True)

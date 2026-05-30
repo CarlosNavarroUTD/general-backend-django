@@ -52,9 +52,16 @@ class ProductoViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = Producto.objects.select_related('marca', 'team')
         
-        # Filtrar por teams del usuario usando TeamMember
-        user_teams = user.teams.values_list('team', flat=True)
-        queryset = queryset.filter(team__id__in=user_teams)
+        # Filtrar por team específico si viene en query params
+        team_id = self.request.query_params.get('team') or self.request.query_params.get('team_id')
+        if team_id:
+            if not user.teams.filter(team_id=team_id).exists():
+                return Producto.objects.none()
+            queryset = queryset.filter(team_id=team_id)
+        else:
+            # Fallback: todos los teams del usuario
+            user_teams = user.teams.values_list('team', flat=True)
+            queryset = queryset.filter(team__id__in=user_teams)
         
         # Filtro por rango de precio
         precio_min = self.request.query_params.get('precio_min', None)
@@ -229,9 +236,16 @@ class StockViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = Stock.objects.select_related('producto', 'producto__team', 'producto__marca')
         
-        # Filtrar por teams del usuario usando TeamMember
-        user_teams = user.teams.values_list('team', flat=True)
-        queryset = queryset.filter(producto__team__id__in=user_teams)
+        # Filtrar por team específico si viene en query params
+        team_id = self.request.query_params.get('team') or self.request.query_params.get('team_id')
+        if team_id:
+            if not user.teams.filter(team_id=team_id).exists():
+                return Stock.objects.none()
+            queryset = queryset.filter(producto__team_id=team_id)
+        else:
+            # Fallback: todos los teams del usuario
+            user_teams = user.teams.values_list('team', flat=True)
+            queryset = queryset.filter(producto__team__id__in=user_teams)
         
         # Filtro por stock bajo
         stock_bajo = self.request.query_params.get('stock_bajo', None)

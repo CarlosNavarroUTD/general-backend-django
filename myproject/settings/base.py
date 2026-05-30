@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     #'apps.notas.apps.NotasConfig',
     'apps.portafolio.apps.PortafolioConfig',
     'apps.campos.apps.CamposConfig',
+    'apps.campaigns.apps.CampaignsConfig',
 
     #Contratos
     'apps.archivos.apps.ArchivosConfig',
@@ -54,13 +55,18 @@ INSTALLED_APPS = [
 ]
 SITE_ID = 1
 
-REST_USE_JWT = True  # si usas JWT
+# Auth settings
+REST_AUTH = {
+    'USE_JWT': True,
+    'JWT_AUTH_COOKIE': 'my-app-auth',
+    'JWT_AUTH_REFRESH_COOKIE': 'my-refresh-token',
+}
 
 
 
 
 SECURE_SSL_REDIRECT = False
-HOST_SCHEME = 'https' 
+HOST_SCHEME = 'http' 
 PARENT_HOST = 'eabmodel.com'  
 
 
@@ -152,7 +158,6 @@ FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
 GOOGLE_REDIRECT_URI = 'http://localhost:8000/api/auth/google/callback/'
 GOOGLE_API_KEY=config('GOOGLE_API_KEY', default='')
 
-"""
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -160,9 +165,11 @@ CORS_ALLOWED_ORIGINS = [
     "https://accounts.google.com",
     "http://flow-builder.eabmodel.com",
     "https://dental-morales.eabmodel.com",
-    'https://preview-e-commerce-system-kzmpyhh8rsswilt9ocwn.vusercontent.net',
+    "https://preview-e-commerce-system-kzmpyhh8rsswilt9ocwn.vusercontent.net",
+    "https://axolmarketing.com",
+    "https://eabmodel.com"
 ]
-"""
+
 CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
@@ -184,16 +191,16 @@ X_FRAME_OPTIONS = 'SAMEORIGIN'
 # Configuración de sesiones para OAuth
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_TRUSTED_ORIGINS = [
-    "https://axol-backend.fly.dev",
-    "https://axolstores.eabmodel.com",
     'https://api.eabmodel.com',
+    "http://django-api:8000",
     "http://localhost:8000",
 ]
-SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SAMESITE = 'Lax'
-CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = False
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_SSL_REDIRECT = False
 
 STORE_BASE_DOMAIN = 'eabmodel.com'  
 
@@ -203,7 +210,7 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     '0.0.0.0',
     'eabmodel.com',
-    'django_api',
+    'django-api',
 ]
 
 # También agrega esto para Fly.dev específicamente
@@ -250,9 +257,12 @@ SOCIALACCOUNT_PROVIDERS = {
         'SCOPE': [
             'profile',
             'email',
+            'https://www.googleapis.com/auth/spreadsheets',
+            'https://www.googleapis.com/auth/calendar',
         ],
         'AUTH_PARAMS': {
-            'access_type': 'online',
+            'access_type': 'offline',
+            'prompt': 'select_account consent',
         },
         'APP': {
             'client_id': GOOGLE_CLIENT_ID,
@@ -260,6 +270,7 @@ SOCIALACCOUNT_PROVIDERS = {
             'key': ''
         },
         'OAUTH_PKCE_ENABLED': True,
+        'FETCH_USERINFO': True,
     }
 }
 
@@ -288,15 +299,28 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # CONFIGURACIÓN ACTUALIZADA DE ALLAUTH (NUEVA SINTAXIS)
 # ============================================================================
 
-ACCOUNT_LOGIN_METHODS = ['email']  # Lista en lugar de set
-ACCOUNT_SIGNUP_FIELDS = ['email']  # Lista de campos requeridos
+ACCOUNT_LOGIN_METHODS = {'email'}
+ACCOUNT_SIGNUP_FIELDS = ['email*']
 ACCOUNT_USER_MODEL_USERNAME_FIELD = 'nombre_usuario'
 
 # Configuraciones adicionales
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_AUTO_SIGNUP = True
 ACCOUNT_UNIQUE_EMAIL = True
-ACCOUNT_EMAIL_VERIFICATION = "none"
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_CONFIRM_EMAIL_ON_GET = True
+
+# ============================================================================
+# CONFIGURACIÓN DE CORREO (RESEND SMTP)
+# ============================================================================
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.resend.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'resend'
+EMAIL_HOST_PASSWORD = config('RESEND_API_KEY', default='')
+DEFAULT_FROM_EMAIL = 'AxolStores <noreply@eabmodel.com>'
+
 
 # Configuración adicional para desarrollo
 if DEBUG:

@@ -53,8 +53,18 @@ class ServicioViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        user_teams = user.teams.values_list('team', flat=True)
-        queryset = Servicio.objects.select_related('team').filter(team__id__in=user_teams)
+        # Filtrar por team específico si viene en query params
+        team_id = self.request.query_params.get('team') or self.request.query_params.get('team_id')
+
+        if team_id:
+            # Validar que el usuario pertenece a ese team
+            if not user.teams.filter(team_id=team_id).exists():
+                return Servicio.objects.none()
+            queryset = Servicio.objects.select_related('team').filter(team_id=team_id)
+        else:
+            # Fallback: todos los teams del usuario (retrocompatibilidad)
+            user_teams = user.teams.values_list('team', flat=True)
+            queryset = Servicio.objects.select_related('team').filter(team__id__in=user_teams)
 
         # Filtros opcionales por query params
         precio_min = self.request.query_params.get('precio_min')
@@ -82,14 +92,20 @@ class ServicioViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        if 'team' not in self.request.data:
+        team_id = self.request.data.get('team')
+        if team_id:
+            # Validar que el usuario pertenece al team
+            if not self.request.user.teams.filter(team_id=team_id).exists():
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied('No perteneces a este team.')
+            serializer.save()
+        else:
+            # Si no se envía team, usar el team activo (primer team del usuario)
             user_teams = self.request.user.teams.all()
             if user_teams.exists():
                 serializer.save(team=user_teams.first().team)
             else:
                 serializer.save()
-        else:
-            serializer.save()
 
     # ──────────────────────────────────────────
     # Endpoint público
@@ -136,10 +152,11 @@ class ServicioViewSet(viewsets.ModelViewSet):
         servicios = servicios.order_by(ordering)
 
         serializer = ServicioPublicoSerializer(servicios, many=True)
+        data = serializer.data
         return Response({
             'team_slug': team_slug,
-            'total': servicios.count(),
-            'servicios': serializer.data
+            'total': len(data),
+            'servicios': data
         })
 
 

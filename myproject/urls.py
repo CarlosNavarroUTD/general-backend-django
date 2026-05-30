@@ -18,8 +18,14 @@ class HealthCheckView(APIView):
     def get(self, request):
         return Response("OK")
 
+from django.views.generic import RedirectView
+import os
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    # Puente para la confirmación de email desde allauth hacia el frontend (SPA)
+    path('verify-email/<str:key>/', RedirectView.as_view(url='https://axolstores.eabmodel.com/verify-email/%(key)s'), name='account_confirm_email'),
 
     path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
@@ -45,7 +51,8 @@ urlpatterns = [
     path('api/', include('apps.contratos.urls')),
 
     #path('api/', include('apps.mensajes.urls')),
-    #path('api/', include('apps.leads.urls')),
+    path('api/', include('apps.leads.urls')),
+    path('api/', include('apps.campaigns.urls')),
 
     ## Detalles de la tienda
     path('api/', include('apps.portafolio.urls')),

@@ -22,5 +22,5 @@ COPY . .
 # Exponer puerto
 EXPOSE 8000
 
-# Comando por defecto (puedes cambiar a gunicorn después)
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Comando para producción con gunicorn
+CMD ["gunicorn", "myproject.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]

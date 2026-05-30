@@ -1,7 +1,7 @@
 # apps/usuarios/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import UsuarioViewSet, PersonaViewSet
+from .views import UsuarioViewSet, PersonaViewSet, GoogleLogin
 
 router = DefaultRouter()
 router.register(r'users', UsuarioViewSet)
@@ -11,6 +11,6 @@ router.register(r'personas', PersonaViewSet)
 
 urlpatterns = [
     path('', include(router.urls)), 
-
+    path('auth/google/', GoogleLogin.as_view(), name='google_login'),
 ]
 

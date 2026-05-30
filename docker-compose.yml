@@ -3,10 +3,8 @@ version: "3.9"
 services:
   api:
     build: .
-    container_name: django_api
+    container_name: django-api
     restart: always
-    ports:
-      - "8000:8000"
     volumes:
       - .:/app
     env_file:
@@ -14,9 +12,9 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=myproject.settings.production
     networks:
-      - n8n_network
+      - axol-network
 
 networks:
-  n8n_network:
+  axol-network:
     external: true
-    name: n8n_n8n_network
+    name: axol-network

@@ -14,20 +14,39 @@ class CitaViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        if self.request.user.tipo_usuario == 'paciente':
-            return Cita.objects.filter(paciente__usuario=self.request.user)
-        return Cita.objects.all()
+        user = self.request.user
+        if user.tipo_usuario == 'paciente':
+            return Cita.objects.filter(paciente__usuario=user)
+        
+        team_id = self.request.query_params.get('team') or self.request.query_params.get('team_id')
+        if team_id:
+            from apps.teams.models import TeamMember
+            if not TeamMember.objects.filter(user=user, team_id=team_id).exists():
+                return Cita.objects.none()
+            return Cita.objects.filter(team_id=team_id)
+        
+        # Fallback: all teams
+        from apps.teams.models import TeamMember
+        user_team_ids = TeamMember.objects.filter(user=user).values_list('team_id', flat=True)
+        return Cita.objects.filter(team_id__in=user_team_ids)
 
     def perform_create(self, serializer):
         user = self.request.user
-        team = user.teams.first()  # usa la relación inversa desde TeamMember
+        team_id = self.request.data.get('team') or self.request.data.get('team_id')
         
-        if not team:
+        from apps.teams.models import TeamMember
+        if team_id:
+            team_member = TeamMember.objects.filter(user=user, team_id=team_id).first()
+        else:
+            team_member = TeamMember.objects.filter(user=user).first()
+            
+        if not team_member:
+            from rest_framework import serializers
             raise serializers.ValidationError("El usuario no pertenece a ningún equipo.")
         
         serializer.save(
             usuario=user,
-            team=team.team  # recuerda que user.teams.first() devuelve un TeamMember
+            team=team_member.team
         )
 
     @action(detail=False, methods=['get'])

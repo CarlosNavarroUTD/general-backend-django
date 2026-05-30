@@ -1,12 +1,14 @@
 # integraciones/urls.py
 
 from django.urls import path
-from .views import GoogleComentariosView, GooglePlaceBusinessViewSet, GoogleBusinessCommentsView
+from .views import GoogleComentariosView, GooglePlaceBusinessViewSet, GoogleBusinessCommentsView, WhatsappInstanceViewSet, GoogleSheetIntegrationViewSet
 from . import views
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
 router.register(r'google/businesses', GooglePlaceBusinessViewSet, basename='google-businesses')
+router.register(r'whatsapp/instances', WhatsappInstanceViewSet, basename='whatsapp-instances')
+router.register(r'googlesheets', GoogleSheetIntegrationViewSet, basename='googlesheets')
 
 urlpatterns = [
     path('google/comentarios/', GoogleComentariosView.as_view(), name='google-comentarios'),

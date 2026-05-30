@@ -20,9 +20,17 @@ class ConversacionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_user_team(self):
-        """Obtiene el team del usuario autenticado"""
+        """Obtiene el team activo del usuario (por query param o primer team)"""
+        team_id = self.request.query_params.get('team') or self.request.query_params.get('team_id')
+        if team_id:
+            try:
+                team_member = TeamMember.objects.filter(user=self.request.user, team_id=team_id).first()
+                if team_member:
+                    return team_member.team
+            except (ValueError, TypeError):
+                pass
+            return None
         try:
-            # Obtener el primer team del usuario (puedes ajustar la lógica según tus necesidades)
             team_member = TeamMember.objects.filter(user=self.request.user).first()
             if team_member:
                 return team_member.team
@@ -155,7 +163,16 @@ class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
     
     def get_user_team(self):
-        """Obtiene el team del usuario autenticado"""
+        """Obtiene el team activo del usuario (por query param o primer team)"""
+        team_id = self.request.query_params.get('team') or self.request.query_params.get('team_id')
+        if team_id:
+            try:
+                team_member = TeamMember.objects.filter(user=self.request.user, team_id=team_id).first()
+                if team_member:
+                    return team_member.team
+            except (ValueError, TypeError):
+                pass
+            return None
         try:
             team_member = TeamMember.objects.filter(user=self.request.user).first()
             if team_member:

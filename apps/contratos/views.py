@@ -136,10 +136,19 @@ class ContratoViewSet(viewsets.ModelViewSet):
         return ContratoSerializer
 
     def get_queryset(self):
-        """Filtrar contratos por teams del usuario"""
+        """Filtrar contratos por team del usuario"""
         user = self.request.user
-        user_teams = user.teams.all()
-        return Contrato.objects.filter(team__in=user_teams).select_related(
+        team_id = self.request.query_params.get('team') or self.request.query_params.get('team_id')
+
+        if team_id:
+            if not user.teams.filter(team_id=team_id).exists():
+                return Contrato.objects.none()
+            return Contrato.objects.filter(team_id=team_id).select_related(
+                'team', 'creado_por'
+            ).prefetch_related('campos', 'firmantes')
+
+        user_team_ids = user.teams.values_list('team_id', flat=True)
+        return Contrato.objects.filter(team_id__in=user_team_ids).select_related(
             'team', 'creado_por'
         ).prefetch_related('campos', 'firmantes')
 
@@ -317,9 +326,16 @@ class CampoContratoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filtrar campos por contratos de los teams del usuario"""
         user = self.request.user
-        user_teams = user.teams.all()
+        team_id = self.request.query_params.get('team') or self.request.query_params.get('team_id')
+        if team_id:
+            if not user.teams.filter(team_id=team_id).exists():
+                return CampoContrato.objects.none()
+            return CampoContrato.objects.filter(
+                contrato__team_id=team_id
+            ).select_related('contrato')
+        user_team_ids = user.teams.values_list('team_id', flat=True)
         return CampoContrato.objects.filter(
-            contrato__team__in=user_teams
+            contrato__team_id__in=user_team_ids
         ).select_related('contrato')
 
     @action(detail=True, methods=['patch'])
@@ -342,9 +358,16 @@ class HistorialContratoViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         """Filtrar historial por contratos de los teams del usuario"""
         user = self.request.user
-        user_teams = user.teams.all()
+        team_id = self.request.query_params.get('team') or self.request.query_params.get('team_id')
+        if team_id:
+            if not user.teams.filter(team_id=team_id).exists():
+                return HistorialContrato.objects.none()
+            return HistorialContrato.objects.filter(
+                contrato__team_id=team_id
+            ).select_related('contrato', 'usuario', 'firmante')
+        user_team_ids = user.teams.values_list('team_id', flat=True)
         return HistorialContrato.objects.filter(
-            contrato__team__in=user_teams
+            contrato__team_id__in=user_team_ids
         ).select_related('contrato', 'usuario', 'firmante')
 
 
@@ -356,9 +379,16 @@ class CertificadoFirmaViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         """Filtrar certificados por contratos de los teams del usuario"""
         user = self.request.user
-        user_teams = user.teams.all()
+        team_id = self.request.query_params.get('team') or self.request.query_params.get('team_id')
+        if team_id:
+            if not user.teams.filter(team_id=team_id).exists():
+                return CertificadoFirma.objects.none()
+            return CertificadoFirma.objects.filter(
+                contrato__team_id=team_id
+            ).select_related('contrato', 'firmante')
+        user_team_ids = user.teams.values_list('team_id', flat=True)
         return CertificadoFirma.objects.filter(
-            contrato__team__in=user_teams
+            contrato__team_id__in=user_team_ids
         ).select_related('contrato', 'firmante')
 
     @action(detail=False, methods=['post'])

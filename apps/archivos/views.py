@@ -62,10 +62,19 @@ class ArchivoViewSet(viewsets.ModelViewSet):
         return ArchivoSerializer
 
     def get_queryset(self):
-        """Filtrar archivos por teams del usuario"""
-        return Archivo.objects.filter(
-            team__members__user=self.request.user
-        ).select_related('team', 'subido_por').distinct()
+        """Filtrar archivos por team del usuario"""
+        user = self.request.user
+        team_id = self.request.query_params.get('team') or self.request.query_params.get('team_id')
+        
+        queryset = Archivo.objects.select_related('team', 'subido_por')
+        
+        if team_id:
+            from apps.teams.models import TeamMember
+            if not TeamMember.objects.filter(user=user, team_id=team_id).exists():
+                return Archivo.objects.none()
+            return queryset.filter(team_id=team_id).distinct()
+        
+        return queryset.filter(team__members__user=user).distinct()
 
     def perform_create(self, serializer):
         """Registrar acceso al crear archivo"""
@@ -352,10 +361,19 @@ class AccesoArchivoViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        """Filtrar accesos por archivos de los teams del usuario"""
-        return AccesoArchivo.objects.filter(
-            archivo__team__members__user=self.request.user
-        ).select_related('archivo', 'usuario', 'archivo__team').distinct()
+        """Filtrar accesos por archivos del team del usuario"""
+        user = self.request.user
+        team_id = self.request.query_params.get('team') or self.request.query_params.get('team_id')
+        
+        queryset = AccesoArchivo.objects.select_related('archivo', 'usuario', 'archivo__team')
+        
+        if team_id:
+            from apps.teams.models import TeamMember
+            if not TeamMember.objects.filter(user=user, team_id=team_id).exists():
+                return AccesoArchivo.objects.none()
+            return queryset.filter(archivo__team_id=team_id).distinct()
+            
+        return queryset.filter(archivo__team__members__user=user).distinct()
 
     @action(detail=False, methods=['get'])
     def mis_accesos(self, request):

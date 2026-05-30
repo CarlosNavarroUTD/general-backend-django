@@ -41,16 +41,18 @@ class TaskViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Filtrar tareas por equipo, estado y fecha de vencimiento"""
-        queryset = Task.objects.all()
+        user = self.request.user
+        team_id = self.request.query_params.get('team') or self.request.query_params.get('team_id')
         
-        # Filtrar solo las tareas de los equipos del usuario
-        user_teams = TeamMember.objects.filter(user=self.request.user).values_list('team_id', flat=True)
-        queryset = queryset.filter(team_id__in=user_teams)
-        
-        # Filtrar por equipo si se especifica
-        team = self.request.query_params.get('team')
-        if team:
-            queryset = queryset.filter(team_id=team)
+        if team_id:
+            # Validar que el usuario pertenece a ese team
+            if not TeamMember.objects.filter(user=user, team_id=team_id).exists():
+                return Task.objects.none()
+            queryset = Task.objects.filter(team_id=team_id)
+        else:
+            # Fallback: todos los teams del usuario
+            user_teams = TeamMember.objects.filter(user=user).values_list('team_id', flat=True)
+            queryset = Task.objects.filter(team_id__in=user_teams)
         
         # Filtrar por estado si se especifica
         status_param = self.request.query_params.get('status')

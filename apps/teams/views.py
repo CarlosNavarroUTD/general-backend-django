@@ -42,9 +42,21 @@ class TeamViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         # Endpoints públicos sin autenticación
-        if self.action in ['add_member', 'public_detail']:
+        if self.action in ['public_detail']:
             return [AllowAny()]
         return super().get_permissions()
+
+    def create(self, request, *args, **kwargs):
+        # Limitar a 2 equipos por usuario (excepto para admins)
+        if not request.user.is_staff:
+            # Contar equipos donde el usuario es el creador/admin
+            owned_teams_count = TeamMember.objects.filter(user=request.user, role='ADMIN').count()
+            if owned_teams_count >= 2:
+                return Response(
+                    {"detail": "Has alcanzado el límite de 2 equipos creados."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         team = serializer.save()
@@ -64,7 +76,7 @@ class TeamViewSet(viewsets.ModelViewSet):
         detail=True, 
         methods=['get'], 
         url_path='members',
-        permission_classes=[AllowAny]
+        permission_classes=[permissions.IsAuthenticated]
     )
     def members(self, request, pk=None):
         team = self.get_object()
@@ -180,6 +192,13 @@ class TeamViewSet(viewsets.ModelViewSet):
     def add_member(self, request, pk=None):
         team = self.get_object()
 
+        # Verificar que el usuario autenticado es ADMIN del team
+        if not TeamMember.objects.filter(team=team, user=request.user, role='ADMIN').exists():
+            return Response(
+                {"detail": "Solo los administradores pueden agregar miembros."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         user_id = request.data.get('user_id')
         role = request.data.get('role', 'MEMBER')
 
@@ -242,12 +261,16 @@ class InvitationViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='my_invitations')
     def my_invitations(self, request):
         """Obtener todas las invitaciones del usuario"""
-        # Buscar invitaciones por email o teléfono
-        invitations = Invitation.objects.filter(
-            Q(email=request.user.email) | Q(phone=request.user.phone),
-            status='PENDING'
-        )
-        
+        query = Q()
+        if request.user.email:
+            query |= Q(email=request.user.email)
+        if request.user.phone:
+            query |= Q(phone=request.user.phone)
+            
+        if not query:
+            return Response([])
+            
+        invitations = Invitation.objects.filter(query, status='PENDING')
         serializer = self.get_serializer(invitations, many=True)
         return Response(serializer.data)
 
@@ -257,8 +280,13 @@ class InvitationViewSet(viewsets.ModelViewSet):
         invitation = self.get_object()
         
         # Verificar que la invitación sea para el usuario actual
-        if (invitation.email != request.user.email and 
-            invitation.phone != request.user.phone):
+        is_for_user = False
+        if request.user.email and invitation.email == request.user.email:
+            is_for_user = True
+        if request.user.phone and invitation.phone == request.user.phone:
+            is_for_user = True
+            
+        if not is_for_user:
             return Response(
                 {"detail": "Esta invitación no está dirigida a ti."},
                 status=status.HTTP_403_FORBIDDEN
@@ -293,8 +321,13 @@ class InvitationViewSet(viewsets.ModelViewSet):
         invitation = self.get_object()
         
         # Verificar que la invitación sea para el usuario actual
-        if (invitation.email != request.user.email and 
-            invitation.phone != request.user.phone):
+        is_for_user = False
+        if request.user.email and invitation.email == request.user.email:
+            is_for_user = True
+        if request.user.phone and invitation.phone == request.user.phone:
+            is_for_user = True
+            
+        if not is_for_user:
             return Response(
                 {"detail": "Esta invitación no está dirigida a ti."},
                 status=status.HTTP_403_FORBIDDEN

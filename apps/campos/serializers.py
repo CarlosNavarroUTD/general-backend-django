@@ -78,14 +78,47 @@ class CamposPersonalizadosMixin:
         from apps.teams.models import Team
         return Team.objects.filter(pk=team_id).first()
 
+    @property
+    def prefetched_campos(self):
+        if not hasattr(self, '_prefetched_campos_cache'):
+            # Si estamos dentro de un ListSerializer, prefetch de todo para la lista
+            if self.parent and getattr(self.parent, 'instance', None):
+                instances = self.parent.instance
+                if hasattr(instances, '__iter__') and instances:
+                    # Tomar el primero para inferir el ContentType
+                    first_instance = instances[0] if isinstance(instances, list) else instances.first()
+                    if first_instance:
+                        content_type = ContentType.objects.get_for_model(first_instance)
+                        object_ids = [getattr(obj, 'pk', None) for obj in instances if getattr(obj, 'pk', None)]
+                        
+                        valores = CampoValor.objects.filter(
+                            content_type=content_type,
+                            object_id__in=object_ids
+                        ).select_related('campo')
+                        
+                        self._prefetched_campos_cache = {}
+                        for cv in valores:
+                            self._prefetched_campos_cache.setdefault(cv.object_id, []).append(cv)
+                    else:
+                        self._prefetched_campos_cache = {}
+                else:
+                    self._prefetched_campos_cache = {}
+            else:
+                self._prefetched_campos_cache = None
+        return self._prefetched_campos_cache
+
     def to_representation(self, instance):
         rep = super().to_representation(instance)
-        # Leer valores guardados y exponerlos como dict {clave: valor}
-        content_type = ContentType.objects.get_for_model(instance)
-        valores = CampoValor.objects.filter(
-            content_type=content_type,
-            object_id=instance.pk,
-        ).select_related('campo')
+        
+        cache = self.prefetched_campos
+        if cache is not None:
+            valores = cache.get(instance.pk, [])
+        else:
+            content_type = ContentType.objects.get_for_model(instance)
+            valores = CampoValor.objects.filter(
+                content_type=content_type,
+                object_id=instance.pk,
+            ).select_related('campo')
 
         rep['personalizados'] = {
             cv.campo.clave: cv.valor_tipado()

@@ -4,10 +4,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from apps.teams.models import TeamMember, Team
-from .models import GoogleMapsIntegration, GooglePlaceBusiness
-
 from rest_framework.viewsets import ModelViewSet
-from .serializers import GooglePlaceBusinessSerializer
+from .serializers import GooglePlaceBusinessSerializer, GoogleSheetIntegrationSerializer, WhatsappInstanceSerializer
+from .models import GoogleMapsIntegration, GooglePlaceBusiness, WhatsappInstance, GoogleSheetIntegration
+from allauth.socialaccount.models import SocialToken
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
 
 from .services.google_maps import obtener_comentarios_google
 
@@ -374,3 +376,252 @@ class GoogleAuthCallbackView(View):
             return token_obj
         else:
             raise Exception("Error al refrescar token: " + response.text)
+
+# ========== VISTAS PARA WHATSAPP / EVOLUTION API ==========
+
+from .models import WhatsappInstance
+from .serializers import WhatsappInstanceSerializer
+from rest_framework.decorators import action
+
+EVOLUTION_API_URL = "http://evolution-api:8080"
+EVOLUTION_API_KEY = "B3stS3cr3tAp1K3yEV0"
+
+class WhatsappInstanceViewSet(ModelViewSet):
+    serializer_class = WhatsappInstanceSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        team_id = self.request.query_params.get('team_id')
+        
+        # Obtener equipos donde el usuario es miembro
+        user_teams = TeamMember.objects.filter(user=user).values_list('team_id', flat=True)
+        
+        if team_id:
+            try:
+                if int(team_id) in user_teams:
+                    return WhatsappInstance.objects.filter(team_id=team_id)
+            except (ValueError, TypeError):
+                pass
+            return WhatsappInstance.objects.none()
+        
+        # Si no hay team_id, permitir acceso a cualquier instancia de sus equipos
+        return WhatsappInstance.objects.filter(team_id__in=user_teams)
+
+    def create(self, request, *args, **kwargs):
+        team_id = request.data.get('team')
+        instance_name = request.data.get('instance_name')
+
+        if not team_id or not instance_name:
+            return Response({"error": "team e instance_name son requeridos"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            team = Team.objects.get(id=team_id)
+            if not TeamMember.objects.filter(user=request.user, team=team).exists():
+                return Response({"error": "No tienes acceso a este equipo"}, status=status.HTTP_403_FORBIDDEN)
+            
+            # Limitar a 3 instancias por equipo (excepto para admins)
+            if not request.user.is_staff:
+                instance_count = WhatsappInstance.objects.filter(team=team).count()
+                if instance_count >= 3:
+                    return Response(
+                        {"error": "Has alcanzado el límite de 3 instancias de WhatsApp para este equipo."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+        except Team.DoesNotExist:
+            return Response({"error": "Equipo no encontrado"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Hacer petición a Evolution API
+        headers = {
+            "apikey": EVOLUTION_API_KEY,
+            "Content-Type": "application/json"
+        }
+        
+        # Generar un nombre único para la instancia en Evolution API
+        import uuid
+        unique_instance_name = f"{team.slug}_{uuid.uuid4().hex[:8]}"
+
+        payload = {
+            "instanceName": unique_instance_name,
+            "qrcode": True,
+            "integration": "WHATSAPP-BAILEYS"
+        }
+
+        try:
+            response = requests.post(f"{EVOLUTION_API_URL}/instance/create", json=payload, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Extraer token con máxima seguridad
+            evolution_token = ""
+            if isinstance(data, dict):
+                # Intentar formato nuevo
+                instance_data = data.get('instance')
+                if isinstance(instance_data, dict):
+                    evolution_token = instance_data.get('apikey', '')
+                
+                # Si no está, intentar formato antiguo
+                if not evolution_token:
+                    hash_data = data.get('hash')
+                    if isinstance(hash_data, dict):
+                        evolution_token = hash_data.get('apikey', '')
+            
+            if not evolution_token:
+                print(f"DEBUG: No se pudo encontrar apikey en la respuesta de Evolution API. Data: {data}")
+
+            # Guardar en BD
+            instance = WhatsappInstance.objects.create(
+                team=team,
+                instance_name=instance_name,
+                instance_id=unique_instance_name,
+                token=evolution_token,
+                status="qr_pending"
+            )
+            
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except requests.exceptions.RequestException as e:
+            return Response({"error": f"Error al conectar con Evolution API: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        
+        headers = {
+            "apikey": EVOLUTION_API_KEY
+        }
+        
+        try:
+            # Eliminar en Evolution API
+            requests.delete(f"{EVOLUTION_API_URL}/instance/delete/{instance.instance_id}", headers=headers)
+            
+            # Eliminar de la BD
+            instance.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except requests.exceptions.RequestException as e:
+            return Response({"error": f"Error al conectar con Evolution API: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=['get'])
+    def get_qr(self, request, pk=None):
+        instance = self.get_object()
+        
+        headers = {
+            "apikey": EVOLUTION_API_KEY
+        }
+        
+        try:
+            response = requests.get(f"{EVOLUTION_API_URL}/instance/connect/{instance.instance_id}", headers=headers)
+            response.raise_for_status()
+            data = response.json()
+            
+            return Response({"base64": data.get("base64"), "code": data.get("code")})
+        except requests.exceptions.RequestException as e:
+            return Response({"error": f"Error al conectar con Evolution API: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+class GoogleSheetIntegrationViewSet(ModelViewSet):
+    serializer_class = GoogleSheetIntegrationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        team_id = self.request.query_params.get('team') or self.request.query_params.get('team_id')
+        
+        if team_id:
+            from apps.teams.models import TeamMember
+            if not TeamMember.objects.filter(user=user, team_id=team_id).exists():
+                return GoogleSheetIntegration.objects.none()
+            return GoogleSheetIntegration.objects.filter(team_id=team_id)
+            
+        user_teams = TeamMember.objects.filter(user=user).values_list('team_id', flat=True)
+        return GoogleSheetIntegration.objects.filter(team_id__in=user_teams)
+
+    @action(detail=True, methods=['post'])
+    def sync(self, request, pk=None):
+        integration = self.get_object()
+        user = request.user
+        
+        # 1. Obtener Token de Google
+        social_token = SocialToken.objects.filter(account__user=user, account__provider='google').first()
+        if not social_token:
+            return Response({"error": "No has conectado tu cuenta de Google o los permisos han expirado."}, status=400)
+        
+        creds = Credentials(
+            token=social_token.token,
+            refresh_token=social_token.token_secret,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=settings.GOOGLE_CLIENT_ID,
+            client_secret=settings.GOOGLE_CLIENT_SECRET
+        )
+
+        try:
+            service = build('sheets', 'v4', credentials=creds)
+            sheet = service.spreadsheets()
+            range_name = f"{integration.sheet_name}!A:Z"
+            result = sheet.values().get(spreadsheetId=integration.spreadsheet_id, range=range_name).execute()
+            rows = result.get('values', [])
+
+            if not rows:
+                return Response({"message": "No se encontraron datos en el Sheet."}, status=200)
+
+            header = rows[0]
+            data_rows = rows[1:]
+            mapping = integration.mapping
+            identificadores = integration.identificadores
+            entidad = integration.entidad
+
+            # Importar modelos de destino dinámicamente
+            if entidad == 'producto':
+                from apps.productos.models import Producto as TargetModel
+            else:
+                from apps.servicios.models import Servicio as TargetModel
+
+            stats = {"created": 0, "updated": 0, "errors": 0}
+
+            for row in data_rows:
+                # Crear diccionario de datos de la fila basado en el header
+                row_data = {}
+                for i, col_name in enumerate(header):
+                    if i < len(row):
+                        row_data[col_name] = row[i]
+
+                # Construir objeto para el sistema
+                target_data = {}
+                for system_field, sheet_col in mapping.items():
+                    if sheet_col in row_data:
+                        target_data[system_field] = row_data[sheet_col]
+
+                if not target_data:
+                    continue
+
+                # 2. Verificar si existe usando identificadores
+                lookup_kwargs = {"team": integration.team}
+                for id_field in identificadores:
+                    if id_field in target_data:
+                        lookup_kwargs[id_field] = target_data[id_field]
+                
+                try:
+                    obj = TargetModel.objects.filter(**lookup_kwargs).first()
+                    if obj:
+                        # Actualizar
+                        for attr, value in target_data.items():
+                            setattr(obj, attr, value)
+                        obj.save()
+                        stats["updated"] += 1
+                    else:
+                        # Crear
+                        target_data["team"] = integration.team
+                        TargetModel.objects.create(**target_data)
+                        stats["created"] += 1
+                except Exception as e:
+                    print(f"Error syncing row: {e}")
+                    stats["errors"] += 1
+
+            integration.last_sync = now()
+            integration.save()
+
+            return Response({
+                "message": "Sincronización completada",
+                "stats": stats
+            })
+
+        except Exception as e:
+            return Response({"error": f"Error al conectar con Google Sheets: {str(e)}"}, status=500)
