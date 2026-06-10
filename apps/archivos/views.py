@@ -343,7 +343,7 @@ class ArchivoViewSet(viewsets.ModelViewSet):
                 "Key": key,
                 "ContentType": file_type,
             },
-            ExpiresIn=60,
+            ExpiresIn=300,
         )
 
         public_url = f"{settings.R2_PUBLIC_URL}/{key}"
