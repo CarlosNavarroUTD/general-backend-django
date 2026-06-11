@@ -130,8 +130,24 @@ class ArchivoViewSet(viewsets.ModelViewSet):
         )
         
         # Eliminar el archivo físico de R2
-        if instance.archivo:
-            instance.archivo.delete(save=False)
+        try:
+            if hasattr(instance, 'archivo_key') and instance.archivo_key:
+                s3 = boto3.client(
+                    "s3",
+                    endpoint_url=settings.R2_ENDPOINT,
+                    aws_access_key_id=settings.R2_ACCESS_KEY_ID,
+                    aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
+                    config=Config(signature_version="s3v4"),
+                    region_name="auto",
+                )
+                s3.delete_object(
+                    Bucket=settings.R2_BUCKET,
+                    Key=instance.archivo_key
+                )
+            elif hasattr(instance, 'archivo') and instance.archivo:
+                instance.archivo.delete(save=False)
+        except Exception as e:
+            print(f"Error al eliminar archivo físico: {e}")
         
         instance.delete()
 
