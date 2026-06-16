@@ -1,5 +1,6 @@
 # apps/usuarios/serializers.py
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 from .models import Usuario, Persona, ActividadUsuario
 
 class PersonaSerializer(serializers.ModelSerializer):
@@ -11,16 +12,26 @@ class PersonaSerializer(serializers.ModelSerializer):
 class UsuarioSerializer(serializers.ModelSerializer):
     persona = PersonaSerializer(required=False, allow_null=True)
     password = serializers.CharField(write_only=True)
+    email = serializers.EmailField(
+        required=True,
+        validators=[
+            UniqueValidator(
+                queryset=Usuario.objects.all(),
+                message="Ya existe un usuario con este correo electrónico."
+            )
+        ]
+    )
 
     class Meta:
         model = Usuario
         fields = [
-            'id_usuario', 'nombre_usuario', 'email', 
-            'tipo_usuario', 'phone', 'password', 'persona'
+            'id_usuario', 'nombre_usuario', 'email',
+            'tipo_usuario', 'phone', 'password', 'persona', 'features_config', 'is_staff'
         ]
         extra_kwargs = {
             'password': {'write_only': True},
-            'phone': {'required': False}
+            'phone': {'required': False},
+            'tipo_usuario': {'required': False},
         }
 
     def create(self, validated_data):

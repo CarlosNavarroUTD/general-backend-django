@@ -40,6 +40,13 @@ class TeamViewSet(viewsets.ModelViewSet):
     serializer_class = TeamSerializer
     permission_classes = [permissions.IsAuthenticated, IsTeamAdminOrReadOnly]
 
+    def get_queryset(self):
+        # Si es staff, puede ver todos los equipos del sistema
+        if self.request.user.is_staff:
+            return Team.objects.all()
+        # Si es usuario normal, solo los equipos donde es miembro
+        return Team.objects.filter(members__user=self.request.user)
+
     def get_permissions(self):
         # Endpoints públicos sin autenticación
         if self.action in ['public_detail']:
@@ -211,6 +218,15 @@ class TeamViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        # Validar límite de usuarios
+        current_members = TeamMember.objects.filter(team=team).count()
+        is_already_member = TeamMember.objects.filter(team=team, user=user).exists()
+        if not is_already_member and current_members >= team.max_users:
+            return Response(
+                {"detail": f"El equipo '{team.name}' ya alcanzó el límite máximo de {team.max_users} usuarios."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # Si ya existe, devolverlo sin error (eficiente)
         member, created = TeamMember.objects.get_or_create(
             team=team,
@@ -253,6 +269,8 @@ class InvitationViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
+        if self.request.user.is_staff:
+            return Invitation.objects.all()
         # Por defecto, solo mostrar invitaciones creadas por el usuario actual
         if self.action == 'list':
             return Invitation.objects.filter(created_by=self.request.user)
@@ -299,13 +317,22 @@ class InvitationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Verificar límite de usuarios en el equipo
+        team = invitation.team
+        current_members = TeamMember.objects.filter(team=team).count()
+        if current_members >= team.max_users:
+            return Response(
+                {"detail": f"El equipo '{team.name}' ya alcanzó el límite máximo de {team.max_users} usuarios."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # Actualizar estado de la invitación
         invitation.status = 'ACCEPTED'
         invitation.save()
         
         # Crear miembro del equipo
         TeamMember.objects.create(
-            team=invitation.team,
+            team=team,
             user=request.user,
             role='MEMBER'
         )

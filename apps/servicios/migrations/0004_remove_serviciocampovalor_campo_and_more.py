@@ -10,13 +10,13 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='serviciocampovalor',
-            name='campo',
-        ),
         migrations.AlterUniqueTogether(
             name='serviciocampovalor',
             unique_together=None,
+        ),
+        migrations.RemoveField(
+            model_name='serviciocampovalor',
+            name='campo',
         ),
         migrations.RemoveField(
             model_name='serviciocampovalor',

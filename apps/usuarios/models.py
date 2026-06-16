@@ -19,6 +19,18 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('tipo_usuario', 'administrador')
         return self.create_user(email, password, **extra_fields)
 
+def default_features():
+    return {
+        "productos": True,
+        "servicios": True,
+        "notas": True,
+        "archivos": True,
+        "leads": False,
+        "tareas": False,
+        "whatsapp": False,
+        "campanas": False,
+    }
+
 class Usuario(AbstractBaseUser, PermissionsMixin):
     id_usuario = models.AutoField(primary_key=True)
     nombre_usuario = models.CharField(max_length=255, unique=True, blank=True, null=True)
@@ -40,6 +52,7 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     phone = models.CharField(max_length=20, blank=True, null=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    features_config = models.JSONField(default=default_features, blank=True)
 
     objects = CustomUserManager()
 

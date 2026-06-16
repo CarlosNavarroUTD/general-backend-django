@@ -160,7 +160,9 @@ GOOGLE_API_KEY=config('GOOGLE_API_KEY', default='')
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://localhost:3013",
     "http://127.0.0.1:3000",
+    "http://127.0.0.1:3013",
     "http://192.168.100.12:3000",
     "https://accounts.google.com",
     "http://flow-builder.eabmodel.com",
@@ -309,6 +311,9 @@ SOCIALACCOUNT_AUTO_SIGNUP = True
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
+
+# Adapter personalizado: redirige los links de confirmación al FRONTEND
+ACCOUNT_ADAPTER = 'apps.usuarios.adapters.CustomAccountAdapter'
 
 # ============================================================================
 # CONFIGURACIÓN DE CORREO (RESEND SMTP)

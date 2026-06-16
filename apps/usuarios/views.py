@@ -163,12 +163,19 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         from allauth.account.models import EmailAddress
         email_address = EmailAddress.objects.filter(user=user, email__iexact=email).first()
         if not email_address or not email_address.verified:
-            # Si el usuario es de google, el socialaccount_autosignup a veces lo auto-verifica
-            # pero para registro normal, fallará aquí.
-            raise serializers.ValidationError({
-                "detail": "Debes verificar tu correo electrónico antes de iniciar sesión."
-            })
-        
+            # Permit staff or superusers to bypass email verification (admin created accounts)
+            if getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False):
+                # Optionally mark the email as verified to avoid future checks
+                if email_address:
+                    email_address.verified = True
+                    email_address.save()
+                # Continue without raising an error
+                pass
+            else:
+                raise serializers.ValidationError({
+                    "detail": "Debes verificar tu correo electrónico antes de iniciar sesión."
+                })
+            
         # Generar tokens
         refresh = self.get_token(user)
         

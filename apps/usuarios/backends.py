@@ -37,5 +37,4 @@ class EmailBackend(ModelBackend):
                 print(f"❌ Usuario no puede autenticarse (is_active={user.is_active})")
         else:
             print(f"❌ Password incorrecto")
-            
-        return None(venv)
+        return None

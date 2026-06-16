@@ -6,6 +6,8 @@ import secrets
 class Team(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
+    # Límite máximo de usuarios por equipo (valor por defecto 10)
+    max_users = models.PositiveIntegerField(default=10, help_text='Número máximo de usuarios que pueden pertenecer a este equipo')
     slug = models.SlugField(unique=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
@@ -46,6 +48,18 @@ class TeamMember(models.Model):
         
     def __str__(self):
         return f"{self.user} - {self.team} ({self.role})"
+
+    def clean(self):
+        """Enforce max_users limit on the related Team.
+        Se llama automáticamente al validar el modelo (e.g. en admin o al usar serializers).
+        """
+        from django.core.exceptions import ValidationError
+        if not self.pk:  # solo al crear
+            current_members = TeamMember.objects.filter(team=self.team).count()
+            if current_members >= self.team.max_users:
+                raise ValidationError({
+                    'team': f"El equipo '{self.team.name}' ya alcanzó el límite máximo de {self.team.max_users} usuarios."
+                })
 
 class Invitation(models.Model):
     STATUS_CHOICES = (
