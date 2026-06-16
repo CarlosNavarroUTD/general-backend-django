@@ -17,7 +17,29 @@ class TeamSerializer(serializers.ModelSerializer):
     class Meta:
         model = Team
         fields = ('id', 'name', 'slug', 'description', 'created_at')
-        read_only_fields = ('created_at', 'slug')
+        read_only_fields = ('created_at',)
+        extra_kwargs = {
+            'slug': {
+                'error_messages': {
+                    'unique': 'Este slug ya está en uso. Elige otro.',
+                    'invalid': 'El slug solo puede contener letras, números, guiones y guiones bajos.',
+                }
+            }
+        }
+
+    def validate_slug(self, value):
+        import re
+        if not re.match(r'^[-a-zA-Z0-9_]+$', value):
+            raise serializers.ValidationError(
+                'El slug solo puede contener letras, números, guiones y guiones bajos.'
+            )
+        # Check uniqueness excluding current instance
+        qs = Team.objects.filter(slug=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('Este slug ya está en uso. Elige otro.')
+        return value
 
 class TeamMemberSerializer(serializers.ModelSerializer):
     # Campos derivados

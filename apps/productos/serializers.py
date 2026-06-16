@@ -22,6 +22,7 @@ class ProductoPublicoSerializer(CamposPersonalizadosMixin, serializers.ModelSeri
     """
     marca_nombre = serializers.CharField(source='marca.nombre', read_only=True)
     stock_disponible = serializers.SerializerMethodField()
+    personalizados = serializers.JSONField(required=False, default=dict)
     
     class Meta:
         model = Producto
@@ -34,7 +35,7 @@ class ProductoPublicoSerializer(CamposPersonalizadosMixin, serializers.ModelSeri
             'marca_nombre',
             'stock_disponible',
             'creado_en',
-            'imagenes'
+            'imagenes',
             'personalizados',
         ]
     
